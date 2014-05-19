@@ -1,0 +1,26 @@
+{
+	"mysql": {
+		"host": "localhost",
+		"user": "webcraft_host",
+		"password": "$11$WzyHRaXfvPsjZfRX9fe0",
+		"database": "webcraft_host"
+	},
+	"nova": {
+		"ip": "68.229.21.36",
+		"port": 8082,
+		"user": "anon",
+		"password": ""
+	},
+	"server": {
+		"port": 8089
+	},
+	"fileserver": {
+		"port": 8088,
+		"path": "protocols"
+	},
+	"commands": {
+		"host": 1,
+		"set": 2,
+		"del": 2
+	}
+}

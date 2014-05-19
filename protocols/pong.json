@@ -1,0 +1,91 @@
+{
+"Meta": {
+    "Title": "Pong",
+    "Author": "Chakra",
+    "Date": "2014-01-26",
+    "Version": 0
+},
+"Setup": {
+    "Network": "simple",
+    "Geometry": "relative"
+},
+"PlayerDef": {
+    "MaxLength": 2,
+    "Observers": true,
+    "AllowMidJoin": false
+},
+"Objects": {
+    "Ball": {
+        "Sample": "projectile",
+        "Speed": 5,
+        "IgnoreGravity": true,
+        "IgnoreFriction": true,
+        "Bounce": true
+    },
+    "Paddle": {
+        "Sample": "unit",
+        "Reflection": {
+            "Enabled": true,
+            "Rigid": true
+        }
+    }
+},
+"Globals": {
+    "paddles": "array",
+    "ball": {"CreateUnit": {
+        "Type": "Ball",
+        "X": 50,
+        "Y": 50,
+        "Angle": {"Multiply": ["Random", 360]}
+    }}
+},
+"Functions": {
+    "init": [
+        {"ForEach": [
+            "Players",
+            "player",
+            {"Set": [
+                {"Child": ["paddles", {"PlayerIndex": "player"}]},
+                {"CreateUnit": {
+                    "Type": "Paddle",
+                    "Y": 50,
+                    "X": {"If": [
+                        {"Equal": [{"PlayerIndex": "player"}, 0]},
+                        1,
+                        99
+                    ]}
+                }}
+            ]}
+        ]}
+    ],
+    "preKey": [
+        {"Switch": [
+            [
+                {"Or": [
+                    {"Equal": ["which", 38]},
+                    {"Equal": ["which", 40]}
+                ]},
+                {"Broadcast": {
+                    "sid": {"string": "key"},
+                    "which": "which"
+                }}
+            ]
+        ]}
+    ],
+    "onKey": [
+        {"Switch": [
+            [
+                {"Equal": ["which", 38]},
+                {"Set": []}
+            ]
+        ]}
+    ]
+},
+"Events": {
+    "init": "init",
+    "key": "preKey"
+},
+"Broadcasts": {
+    "key": "onKey"
+}
+}
