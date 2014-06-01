@@ -188,15 +188,15 @@ Client.prototype.key = function(packet) {
 		}
 	}
 	
-	if (flag) this.send({id: 'onKeyFail'});
+	if (flag) this.send({id: 'onKeyFail', data: packet});
 };
 
 //////////////////////////////////////////////
 //	Lobby
 //////////////////////////////////////////////
-Client.prototype.lobby = function(data) {
+Client.prototype.lobby = function(packet) {
 	
-	var lobby = this.server.lobbies[data.name.toLowerCase()];
+	var lobby = this.server.lobbies[packet.name.toLowerCase()];
 	
 	if (typeof lobby != "undefined") {
 		
@@ -211,38 +211,38 @@ Client.prototype.lobby = function(data) {
 //	Communication
 //////////////////////////////////////////////
 
-Client.prototype.echo = function(data) {
+Client.prototype.echo = function(packet) {
 	
 	//Modify data
-	data.id = 'onEcho';
-	data.timestamp = new Date().getTime();
+	packet.id = 'onEcho';
+	packet.timestamp = new Date().getTime();
 	
 	//Send to client
-	this.send(data);
+	this.send(packet);
 }
 
-Client.prototype.broadcast = function(data) {
+Client.prototype.broadcast = function(packet) {
 
 	//If they are in a lobby
 	if (this.lobby) {
 		
 		//Modify data
-		data.id = 'onBroadcast';
-		data.timestamp = new Date().getTime();
+		packet.id = 'onBroadcast';
+		packet.timestamp = new Date().getTime();
 		
 		//Broadcast to lobby
-		this.lobby.broadcast(data, this);
+		this.lobby.broadcast(packet, this);
 		//this.lobby.send(data, this);
 	
 	//Else give them a fail
-	} else this.send({id: 'onBroadcastFail', reason: 'lobby', data: data});
+	} else this.send({id: 'onBroadcastFail', reason: 'lobby', data: packet});
 }
 
 //////////////////////////////////////////////
 //	Hosting
 //////////////////////////////////////////////
 
-Client.prototype.unlist = function(data) {
+Client.prototype.unlist = function(packet) {
 	
 	//Make sure they are in a lobby
 	if (this.lobby) {
@@ -259,14 +259,14 @@ Client.prototype.unlist = function(data) {
 				
 				//They do, so unlist and tell user
 				this.lobby.unlist();
-				this.send({id: 'onUnlist', data: data});
+				this.send({id: 'onUnlist', data: packet});
 				
-			} else this.send({id: 'onUnlistFail', reason: 'block', data: data});
+			} else this.send({id: 'onUnlistFail', reason: 'block', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onUnlistFail', reason: 'lobby', data: data});
+	} else this.send({id: 'onUnlistFail', reason: 'lobby', data: packet});
 }
 
-Client.prototype.relist = function(data) {
+Client.prototype.relist = function(packet) {
 	
 	//Make sure they are in a lobby
 	if (this.lobby) {
@@ -283,14 +283,14 @@ Client.prototype.relist = function(data) {
 				
 				//They do, so relist and tell user
 				this.lobby.relist();
-				this.send({id: 'onRelist', data: data});
+				this.send({id: 'onRelist', data: packet});
 				
-			} else this.send({id: 'onRelistFail', reason: 'block', data: data});
+			} else this.send({id: 'onRelistFail', reason: 'block', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onRelistFail', reason: 'lobby', data: data});
+	} else this.send({id: 'onRelistFail', reason: 'lobby', data: packet});
 };
 
-Client.prototype.unreserve = function(data) {
+Client.prototype.unreserve = function(packet) {
 	
 	//Make sure they are in a lobby
 	if (this.lobby) {
@@ -307,11 +307,11 @@ Client.prototype.unreserve = function(data) {
 				
 				//They do, so unreserve and tell user
 				this.lobby.unreserve();
-				this.send({id: 'onUnreserve', data: data});
+				this.send({id: 'onUnreserve', data: packet});
 				
-			} else this.send({id: 'onUnreserveFail', reason: 'block', data: data});
+			} else this.send({id: 'onUnreserveFail', reason: 'block', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onUnreserveFail', reason: 'no lobby', data: data});
+	} else this.send({id: 'onUnreserveFail', reason: 'no lobby', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -351,9 +351,9 @@ Client.prototype.setProtocol = function(packet) {
 					
 				}.bind(this));
 			
-			} else this.send({id: 'onProtocolFail', reason: 'no access', data: data});
+			} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: data});
+	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
 
 };
 
@@ -378,7 +378,7 @@ Client.prototype.getProtocols = function(packet) {
 				
 			}.bind(this));
 		
-		} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: data});
+		} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: packet});
 	}.bind(this));
 };
 
@@ -386,15 +386,15 @@ Client.prototype.getProtocols = function(packet) {
 //	Misc
 //////////////////////////////////////////////
 
-Client.prototype.js = function(data) {
+Client.prototype.js = function(packet) {
 	
 	if (this.mode == "js") {
 		try {
-			this.send(eval(data), true);
+			this.send(eval(packet), true);
 		} catch (err) {
 			this.send(err, true);
 		}
-	} else this.send({id:'onJSFail', reason:'Access denied.'});
+	} else this.send({id:'onJSFail', reason:'Access denied.', data: packet});
 }
 
 //////////////////////////////////////////////
