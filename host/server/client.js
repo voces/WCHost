@@ -98,7 +98,8 @@ Client.prototype.receive = function(data) {
 		} else {
 			
 			//Lobby
-			if (packet.id == "lobby") this.lobby(packet);
+			if (packet.id == "lobby") this.joinLobby(packet);
+			else if (packet.id == "leave") this.leave(packet);
 			
 			//Communication
 			else if (packet.id == "broadcast") this.broadcast(packet);
@@ -194,18 +195,28 @@ Client.prototype.key = function(packet) {
 //////////////////////////////////////////////
 //	Lobby
 //////////////////////////////////////////////
-Client.prototype.lobby = function(packet) {
+
+Client.prototype.joinLobby = function(packet) {
 	
-	var lobby = this.server.lobbies[packet.name.toLowerCase()];
-	
-	if (typeof lobby != "undefined") {
+	//Validate name argument (for lobby)
+	if (typeof packet.name == "string") {
 		
-		this.lobby = lobby;
-		lobby.addClient(this);
+		//Validate lobby exists exists
+		var lobby = this.server.lobbies[packet.name.toLowerCase()];
 		
-	} else this.send({id: 'onLobbyFail', reason: 'invalid', data: packet});
+		if (typeof lobby != "undefined") {
+			this.lobby = lobby;
+			lobby.addClient(this);
+			
+		} else this.send({id: 'onLobbyFail', reason: 'noLobby', data: packet});
+	} else this.send({id: 'onLobbyFail', reason: 'args', data: packet});
 	
-}
+};
+
+Client.prototype.leave = function(packet) {
+	if (this.lobby) this.lobby.removeClient(this);
+	else this.send({id: "onLeaveFail", reason: "noLobby", data: packet});
+};
 
 //////////////////////////////////////////////
 //	Communication

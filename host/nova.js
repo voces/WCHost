@@ -50,7 +50,7 @@ Nova.prototype.onMessage = function(data, flags) {
 	
 	//Joining
 	else if (data.id == "bridge") this.bridge(data);
-	else if (data.id == "lobby") this.lobby(data);
+	//else if (data.id == "lobby") this.lobby(data);
 	else if (data.id == "onOnBridge") {}
 	else if (data.id == "onOnLobby") {}
 	
@@ -214,6 +214,10 @@ Nova.prototype.canConnect = function(trueAccount, account, ip) {
 	return typeof this.server.clients[account] == "undefined" && typeof this.server.preclients[account] == "undefined";
 }
 
+Nova.prototype.canJoin = function(trueAccount, account, ip) {
+	return true;
+}
+
 Nova.prototype.reserve = function(packet) {
 	
 	if (typeof packet.name == "string") {
@@ -226,7 +230,6 @@ Nova.prototype.reserve = function(packet) {
 			}
 		}
 	}
-	
 }
 
 Nova.prototype.bridge = function(packet) {
@@ -246,33 +249,7 @@ Nova.prototype.bridge = function(packet) {
 		
 		this.send({id: 'onBridge', account: packet.account, key: key});
 		
-	} else this.send({id: 'bridgeReject', reason: 'blocked', data: packet});
-	
-}
-
-Nova.prototype.lobby = function(packet) {
-	
-	var lobby = server.lobbies[packet.lobby.toLowerCase()];
-	
-	if (lobby) {
-		
-		if (this.canConnect(packet.originalAccount, packet.account.toLowerCase(), packet.ip)) {
-			
-			//Set the key
-			//	A string instead of a number because json++ is wonky ATM
-			var key = Math.random().toString().substr(2);
-			
-			var preClient = new PreClient(packet.account, key, lobby);
-			
-			this.server.preclients.push(preClient);
-			this.server.preclients[packet.account.toLowerCase()] = preClient;
-			
-			preClient.server = this.server;
-			
-			this.send({id: 'onLobby', lobby: packet.lobby, account: packet.account, key: key});
-			
-		} else this.send({id: 'rejectLobby', reason: 'blocked', data: packet});
-	} else this.send({id: 'rejectLobby', reason: 'no lobby', data: packet});
+	} else this.send({id: 'bridgeReject', account: packet.account, reason: 'blocked', data: packet});
 	
 }
 

@@ -53,15 +53,14 @@ Lobby.prototype.addClient = function(client) {
 
 Lobby.prototype.removeClient = function(client) {
 	
+	//Tell our clients (do this first to include leaver)
+	this.send({id: 'onLeave', lobby: this.name}, client);
+	
 	//Remove them from simple array list
 	this.clients.splice(this.clients.indexOf(client), 1);
-	//delete this.clients[this.clients.indexOf(client)];
 	
 	//Remove them from specific account list
 	delete this.clients[client.account];
-	
-	//Tell our clients
-	this.send({id:'onLeave', lobby:this.name}, client);
 	
 	//Log it
 	this.log("Removed user", client.account);
@@ -101,14 +100,14 @@ Lobby.prototype.update = function(data, account) {
 	this.updateID++;
 };
 
-Lobby.prototype.send = function(data, account) {
+Lobby.prototype.send = function(data, client) {
 	
 	//Append a lobby name to the packet
 	//	This makes data.lobby effectively reserved for any data transmitting through this function
 	data.lobby = this.name;
 	
-	//Only allows data.account to be set if an account is passed, otherwise kill it
-	if (account) data.account = account.account;
+	//Only allows data.account to be set if a client is passed, otherwise kill it
+	if (client) data.account = client.account;
 	else delete data.account;
 	
 	//Loop through clients in lobby
