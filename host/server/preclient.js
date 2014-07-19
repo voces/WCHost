@@ -6,12 +6,12 @@ function PreClient(account, key, lobby) {
 	
 	this.timeout = setTimeout(this.timeoutFunc.bind(this), 10000);
 	
-	this.log("PreClient " + this.account + " created");
+	this.log("PreClient created");
 	
 }
 
 PreClient.prototype.timeoutFunc = function() {
-	this.log("PreClient " + this.account + " timeout");
+	this.log("PreClient timeout");
 	
 	this.destroy();
 };

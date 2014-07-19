@@ -1,91 +1,39 @@
 {
-"Meta": {
-    "Title": "Pong",
-    "Author": "Chakra",
-    "Date": "2014-01-26",
-    "Version": 0
+"meta": {
+    "title": "Pong",
+    "author": "Chakra",
+    "date": "2014-07-18",
+    "version": 0,
+	"preview": "http://www.tutorialhero.com/uploads/83861.png"
 },
-"Setup": {
-    "Network": "simple",
-    "Geometry": "relative"
+"setup": {
+    "network": "simple",
+    "geometry": "relative"
 },
-"PlayerDef": {
-    "MaxLength": 2,
-    "Observers": true,
-    "AllowMidJoin": false
+"playerDef": {
+    "maxLength": 2,
+    "observers": true,
+    "allowMidJoin": false
 },
-"Objects": {
-    "Ball": {
-        "Sample": "projectile",
-        "Speed": 5,
-        "IgnoreGravity": true,
-        "IgnoreFriction": true,
-        "Bounce": true
+"objects": {
+    "ball": {
+        "sample": "projectile",
+        "speed": 5,
+        "ignoreGravity": true,
+        "ignoreFriction": true,
+        "bounce": true
     },
-    "Paddle": {
-        "Sample": "unit",
-        "Reflection": {
-            "Enabled": true,
-            "Rigid": true
+    "paddle": {
+        "sample": "unit",
+        "reflection": {
+            "enabled": true,
+            "rigid": true
         }
     }
 },
-"Globals": {
-    "paddles": "array",
-    "ball": {"CreateUnit": {
-        "Type": "Ball",
-        "X": 50,
-        "Y": 50,
-        "Angle": {"Multiply": ["Random", 360]}
-    }}
-},
-"Functions": {
-    "init": [
-        {"ForEach": [
-            "Players",
-            "player",
-            {"Set": [
-                {"Child": ["paddles", {"PlayerIndex": "player"}]},
-                {"CreateUnit": {
-                    "Type": "Paddle",
-                    "Y": 50,
-                    "X": {"If": [
-                        {"Equal": [{"PlayerIndex": "player"}, 0]},
-                        1,
-                        99
-                    ]}
-                }}
-            ]}
-        ]}
-    ],
-    "preKey": [
-        {"Switch": [
-            [
-                {"Or": [
-                    {"Equal": ["which", 38]},
-                    {"Equal": ["which", 40]}
-                ]},
-                {"Broadcast": {
-                    "sid": {"string": "key"},
-                    "which": "which"
-                }}
-            ]
-        ]}
-    ],
-    "onKey": [
-        {"Switch": [
-            [
-                {"Equal": ["which", 38]},
-                {"Set": []}
-            ]
-        ]}
-    ]
-},
-"Events": {
-    "init": "init",
-    "key": "preKey"
-},
-"Broadcasts": {
-    "key": "onKey"
-}
+"scripts": [
+	{
+		"src": "http://68.229.21.36:81/wcp/pong.js"
+	}
+]
 }

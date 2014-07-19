@@ -11,6 +11,8 @@ function Lobby(name) {
 	this.settings = {permissions: {}, ranks: {}};
 	this.protocol = null;
 	
+	this.timeout = setTimeout(this.destroy.bind(this), 300000);	//destruct in 5 minutes
+	
 	//Log it
 	this.log("Reserved lobby");
 	
@@ -18,10 +20,16 @@ function Lobby(name) {
 
 Lobby.prototype.destroy = function() {
 	
-	for (var i = 0; i < this.clients; i++)
-		this.removeClient(this.clients[i]);
+	//Tell Nova we're dead
+	nova.send({id: 'unreserve', name: this.name});
 	
-	this.server.lobbies.splice(lobbies.indexOf(this), 1);
+	//Tell our clients they have left and then silently remove them
+	for (var i = 0; i < this.clients; i++) {
+		this.send({id: 'onLeave', lobby: this.name, forced: true}, this.clients[i]);
+		this.removeClient(this.clients[i], true);
+	}
+	
+	this.server.lobbies.splice(this.server.lobbies.indexOf(this), 1);
 	delete this.server.lobbies[this.name.toLowerCase()];
 	
 	this.log(cc.red, "Lobby unreserved");
@@ -45,26 +53,34 @@ Lobby.prototype.addClient = function(client) {
 	//Tell the client who's here
 	client.send({id:'onJoin', lobby:this.name, accounts:propArrOfArr(this.clients, 'account')});
 	
-	//Log it
-	this.log("Added user", client.account);
-	//this.history.push([Date.now(), client, 'a']);
+	//Make sure timeout is not active
+	clearTimeout(this.timeout);
 	
+	//Log it
+	client.log("Added user to lobby");
+	//this.history.push([Date.now(), client, 'a']);
 }
 
-Lobby.prototype.removeClient = function(client) {
+Lobby.prototype.removeClient = function(client, silent) {
+	
+	//If empty, start timer to destruct
+	if (this.clients.length <= 1) {
+		this.timeout = setTimeout(this.destroy.bind(this), 300000);	//5 minutes
+		
+		//Special log
+		client.log("Removed user from lobby, auto destruct enabled");
+		
+	//Normal log
+	} else client.log("Removed user from lobby");
 	
 	//Tell our clients (do this first to include leaver)
-	this.send({id: 'onLeave', lobby: this.name}, client);
+	if (silent !== true)
+		this.send({id: 'onLeave', lobby: this.name}, client);
 	
-	//Remove them from simple array list
+	//Remove them from array, object, and set their status
 	this.clients.splice(this.clients.indexOf(client), 1);
-	
-	//Remove them from specific account list
 	delete this.clients[client.account];
-	
-	//Log it
-	this.log("Removed user", client.account);
-	//this.history.push([Date.now(), client, 'r']);
+	client.lobby = null;
 	
 }
 

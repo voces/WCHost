@@ -186,6 +186,8 @@ Client.prototype.key = function(packet) {
 			
 			this.server.preclients[i].destroy();
 			this.server.clients[this.account.toLowerCase()] = this;
+			
+			this.log("Client authenticated");
 		}
 	}
 	
@@ -203,11 +205,15 @@ Client.prototype.joinLobby = function(packet) {
 		
 		//Validate lobby exists exists
 		var lobby = this.server.lobbies[packet.name.toLowerCase()];
-		
 		if (typeof lobby != "undefined") {
-			this.lobby = lobby;
-			lobby.addClient(this);
 			
+			//Validate they aren't already inside
+			if (lobby.clients.indexOf(this) < 0) {
+				
+				this.lobby = lobby;
+				lobby.addClient(this);
+				
+			} else this.send({id: 'onLobbyFail', reason: 'duplicate', data: packet});
 		} else this.send({id: 'onLobbyFail', reason: 'noLobby', data: packet});
 	} else this.send({id: 'onLobbyFail', reason: 'args', data: packet});
 	
@@ -216,6 +222,8 @@ Client.prototype.joinLobby = function(packet) {
 Client.prototype.leave = function(packet) {
 	if (this.lobby) this.lobby.removeClient(this);
 	else this.send({id: "onLeaveFail", reason: "noLobby", data: packet});
+	
+	this.lobby = null;
 };
 
 //////////////////////////////////////////////
@@ -351,17 +359,23 @@ Client.prototype.setProtocol = function(packet) {
 						else this.log("err", err, rootdir + '/protocols/' + packet.path);
 					} else {
 						try {
+							this.lobby.path = packet.path;
 							this.lobby.protocol = JSON.parse(data);
-							
-							this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol, data: packet});
-							
 						} catch (err) {
 							this.send({id: 'onProtocolFail', reason: 'corrupt protocol', data: packet});
+							return;
 						}
+						
+						nova.send({
+							id: "update",
+							name: this.lobby.name,
+							protocol: this.lobby.protocol.meta.title,
+							preview: this.lobby.protocol.meta.preview
+						});
+						
+						this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol, data: packet});
 					}
-					
 				}.bind(this));
-			
 			} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
 		}.bind(this));
 	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
@@ -471,8 +485,13 @@ Client.prototype.log = function() {
 	var t = d.getHours().pad(2) + ":" + d.getMinutes().pad(2) + ":" + d.getSeconds().pad(2) + ":" + d.getMilliseconds().pad(3);
 	
 	//Place the ip address first
-	if (typeof this.account == "string") args.unshift(t + cc.cyan, '[' + cc.green + this.account + cc.cyan + ']');
-	else args.unshift(t + cc.cyan, '[' + cc.green + this.storedAddress + cc.cyan + ']');
+	if (typeof this.account == "string") {
+		if (this.lobby) args.unshift(t + cc.cyan, '[' + cc.magenta + this.lobby.name + cc.cyan + '] [' + cc.green + this.account + cc.cyan + ']');
+		else args.unshift(t + cc.cyan, '[' + cc.green + this.account + cc.cyan + ']');
+	} else {
+		if (this.lobby) args.unshift(t + cc.cyan, '[' + cc.magenta + this.lobby.name + cc.cyan + '] [' + cc.green + this.storedAddress + cc.cyan + ']');
+		else args.unshift(t + cc.cyan, '[' + cc.green + this.storedAddress + cc.cyan + ']');
+	}
 	
 	//Default color at end
 	args.push(cc.default);
