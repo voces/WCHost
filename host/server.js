@@ -63,13 +63,13 @@ Server.prototype.removeClient = function(client) {
 	if (client.account) delete this.clients[client.account.toLowerCase()];
 };
 
-Server.prototype.newLobby = function(name) {
+Server.prototype.newLobby = function(name, owner) {
 	
 	//Check if lobby exists
 	if (this.lobbies[name.toLowerCase()] == true) {
 		
 		//It doesn't create it
-		var lobby = new Lobby(name);
+		var lobby = new Lobby(name, owner);
 		
 		//Set parent variable
 		lobby.server = this;

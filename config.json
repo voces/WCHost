@@ -18,9 +18,18 @@
 		"port": 8088,
 		"path": "protocols"
 	},
-	"commands": {
-		"host": 1,
-		"set": 2,
-		"del": 2
-	}
+	"access": {
+		"default": {
+			"reserve": false,
+			"protocol": false,
+			"set": false,
+			"kick": false,
+			"js": false
+		},
+		"owner": {
+			"protocol": true,
+			"kick": true
+		}
+	},
+	"password": "admin"
 }

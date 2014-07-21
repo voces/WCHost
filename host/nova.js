@@ -221,11 +221,11 @@ Nova.prototype.canJoin = function(trueAccount, account, ip) {
 Nova.prototype.reserve = function(packet) {
 	
 	if (typeof packet.name == "string") {
-		if (this.canHost(packet.account.toLowerCase())) {
+		if (this.canHost(packet.owner.toLowerCase())) {
 			if (!this.server.lobbies[packet.name.toLowerCase()]) {
 			
 				this.server.lobbies[packet.name.toLowerCase()] = true;
-				this.send({id: 'onReserve', name: packet.name});
+				this.send({id: 'onReserve', name: packet.name, owner: packet.owner});
 				
 			}
 		}
@@ -254,9 +254,7 @@ Nova.prototype.bridge = function(packet) {
 }
 
 Nova.prototype.onOnReserve = function(packet) {
-	
-	this.server.newLobby(packet.name);
-	
+	this.server.newLobby(packet.name, packet.owner);
 };
 
 /**********************************

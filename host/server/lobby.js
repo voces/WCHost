@@ -2,10 +2,11 @@
 //	Constructor + property set/gets + deconstructor
 //////////////////////////////////////////////
 
-function Lobby(name) {
+function Lobby(name, owner) {
 	
 	//Define local variables
 	this.name = name;
+	this.ownerAccount = owner;
 	this.clients = [];
 	this.history = [];
 	this.settings = {permissions: {}, ranks: {}};
@@ -42,7 +43,7 @@ Lobby.prototype.destroy = function() {
 Lobby.prototype.addClient = function(client) {
 	
 	//Tell our clients
-	this.send({id:'onJoin', lobby: this.name, accounts: [client.account], protocol: this.protocol});
+	this.send({id:'onJoin', lobby: this.name, accounts: [client.account]});
 	
 	//So we can loop through clients...
 	this.clients.push(client);
@@ -50,8 +51,14 @@ Lobby.prototype.addClient = function(client) {
 	//For easy access of clients...
 	this.clients[client.account] = client;
 	
-	//Tell the client who's here
-	client.send({id:'onJoin', lobby:this.name, accounts:propArrOfArr(this.clients, 'account')});
+	//Tell the client who's here and the protocol
+	client.send({
+		id: 'onJoin',
+		lobby: this.name,
+		accounts: propArrOfArr(this.clients, 'account'),
+		protocol: this.protocol,
+		owner: (this.ownerAccount == client.account ? true : false)
+	});
 	
 	//Make sure timeout is not active
 	clearTimeout(this.timeout);

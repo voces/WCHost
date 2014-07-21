@@ -10,6 +10,11 @@ function Client(socket) {
 	this.mode = "normal";
 	this.lobby = null;
 	this.lobbies = {};
+	this.access = {};
+	
+	for (var property in config.access.default)
+		if (config.access.default.hasOwnProperty(property))
+			this.access[property] = config.access.default[property];
 	
 	//Make sure the socket is an object type
 	if (typeof socket == "object") {
@@ -72,7 +77,7 @@ Client.prototype.receive = function(data) {
 		if (this.mode == "js") var packet = {id:"js", command:data};
 		
 		//If they simply sent "koalas", it's a keyword and direct JS control is enabled
-		else if (data == this.server.config.password) {
+		else if (data == config.password && this.hasAccess("js")) {
 			this.mode = "js";
 			this.send("Access Granted", true);
 			return;
@@ -143,50 +148,46 @@ Client.prototype.key = function(packet) {
 		if (this.server.preclients[i].key == packet.key) {
 			flag = false;
 			
+			//Grab account from preclient info
 			this.account = this.server.preclients[i].account;
 			
-			//Find the user's access
-			/*db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
-				
-				//Set access (0 if not found)
-				if (rows.length == 0) var access = 0;
-				else var access = rows[0].access;
-				
-				//See if they have enough
-				if (access >= config.commands.host) {
-					
-					fs.readdir(rootdir + '/protocols/', function(err, files) {
-						
-						for (var i = 0; i < files.length; i++)
-							if (files[i].substr(files[i].length - 5).toLowerCase() == '.json')
-								files[i] = files[i].substr(0, files[i].length - 5);
-						
-						this.send({id: 'onKey', account: this.account, access: access, protocols: files});
-						
-					}.bind(this));
-					
-				} else this.send({id: 'onKey', account: this.account, access: access});
-			}.bind(this));*/
-			
-			this.send({id: 'onKey', account: this.account});
-			
+			//Check to see if the key packet includes a request for a lobby
 			if (packet.lobby) {
 				var lobby = this.server.lobbies[packet.lobby];
 				
+				//Lobby exists, add them
 				if (lobby) {
 					this.lobby = lobby;
 					lobby.addClient(this);
 				}
+			
+			//See if they requested one while a preclient
 			} else if (this.server.preclients[i].lobby) {
 				this.lobby = this.server.preclients[i].lobby;
 				this.server.preclients[i].lobby.addClient(this);
 			}
 			
+			//Destroy preclient
 			clearTimeout(this.server.preclients[i].timeout);
-			
 			this.server.preclients[i].destroy();
+			
+			//Set easy access within client object
 			this.server.clients[this.account.toLowerCase()] = this;
 			
+			//Grab client's access and echo
+			db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+				if (rows.length != 0) {
+					var access = JSON.parse(rows[0].access);
+					
+					for (var property in access)
+						if (access.hasOwnProperty(property))
+							this.access[property] = access[property];
+				}
+				
+				this.send({id: 'onKey', account: this.account, access: this.access});
+			}.bind(this));
+			
+			//Report
 			this.log("Client authenticated");
 		}
 	}
@@ -337,74 +338,66 @@ Client.prototype.unreserve = function(packet) {
 //	Commands
 //////////////////////////////////////////////
 
+Client.prototype.hasAccess = function(what) {
+	return this.access[what] || (this.lobby && this.lobbyowner == this.account && config.access.owner[what]);
+};
+
 Client.prototype.setProtocol = function(packet) {
 
 	//Make sure they are in a lobby
 	if (this.lobby) {
 		
-		//Find the user's access
-		db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+		//See if they have access to change the protocol
+		if (this.hasAccess("protocol")) {
 			
-			//Set access (0 if not found)
-			if (rows.length == 0) var access = 0;
-			else var access = rows[0].access;
-			
-			//See if they have enough
-			if (access >= config.commands.host) {
-			
-				fs.readFile(rootdir + '/protocols/' + packet.path + '.json', 'utf8', function (err, data) {
-					
-					if (err) {
-						if (err.code == "ENOENT") this.send({id: 'onProtocolFail', reason: 'no protocol', data: packet});
-						else this.log("err", err, rootdir + '/protocols/' + packet.path);
-					} else {
-						try {
-							this.lobby.path = packet.path;
-							this.lobby.protocol = JSON.parse(data);
-						} catch (err) {
-							this.send({id: 'onProtocolFail', reason: 'corrupt protocol', data: packet});
-							return;
-						}
-						
-						nova.send({
-							id: "update",
-							name: this.lobby.name,
-							protocol: this.lobby.protocol.meta.title,
-							preview: this.lobby.protocol.meta.preview
-						});
-						
-						this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol, data: packet});
+			//Read the protocol
+			fs.readFile(rootdir + '/protocols/' + packet.path + '.json', 'utf8', function (err, data) {
+				
+				if (err) {
+					if (err.code == "ENOENT") this.send({id: 'onProtocolFail', reason: 'no protocol', data: packet});
+					else this.log("err", err, rootdir + '/protocols/' + packet.path);
+				} else {
+					try {
+						this.lobby.path = packet.path;
+						this.lobby.protocol = JSON.parse(data);
+					} catch (err) {
+						this.send({id: 'onProtocolFail', reason: 'corrupt protocol', data: packet});
+						return;
 					}
-				}.bind(this));
-			} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
-		}.bind(this));
+					
+					nova.send({
+						id: "update",
+						name: this.lobby.name,
+						protocol: this.lobby.protocol.meta.title,
+						preview: this.lobby.protocol.meta.preview
+					});
+					
+					this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol, data: packet});
+				}
+			}.bind(this));
+			
+		} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
 	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
-
 };
 
 Client.prototype.getProtocols = function(packet) {
-	//Find the user's access
-	db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+	
+	//Verify they have access
+	if (this.hasAccess("protocol")) {
 		
-		//Set access (0 if not found)
-		if (rows.length == 0) var access = 0;
-		else var access = rows[0].access;
-		
-		//See if they have enough
-		if (access >= config.commands.host) {
-		
-			fs.readdir(rootdir + '/protocols/', function(err, files) {
-				
-				for (var i = 0; i < files.length; i++)
-					if (files[i].substr(files[i].length - 5).toLowerCase() == '.json')
-						files[i] = files[i].substr(0, files[i].length - 5);
-				
-				this.send({id: 'onGetProtocols', account: this.account, access: access, protocols: files});
-				
-			}.bind(this));
-		
-		} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: packet});
-	}.bind(this));
+		//Get list of protocols
+		fs.readdir(rootdir + '/protocols/', function(err, files) {
+			
+			//Build it
+			for (var i = 0; i < files.length; i++)
+				if (files[i].substr(files[i].length - 5).toLowerCase() == '.json')
+					files[i] = files[i].substr(0, files[i].length - 5);
+			
+			//Send it
+			this.send({id: 'onGetProtocols', account: this.account, access: access, protocols: files});
+			
+		}.bind(this));
+	} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -470,9 +463,7 @@ Client.prototype.send = function(data, useUtil) {
 		//Send via socket
 		else if (this.type == "s") this.socket.write(s);
 		
-	} catch (err) {
-		this.log(cc.bred, err);
-	};
+	} catch(e){};
 }
 
 Client.prototype.log = function() {
