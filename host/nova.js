@@ -30,7 +30,7 @@ Nova = function(serverPort, ip, port, user, password) {
 	//	a) we don't disconnect and
 	//	b) we have a ping measurement
 	this.pings = [];
-	this.pingInterval = setInterval(this.pingFunc.bind(this), 300000);
+	this.pingInterval = setInterval(this.pingFunc.bind(this), 1800000);
 }
 
 /**********************************

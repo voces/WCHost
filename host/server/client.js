@@ -350,21 +350,16 @@ Client.prototype.setProtocol = function(packet) {
 		//See if they have access to change the protocol
 		if (this.hasAccess("protocol")) {
 			
-			//Read the protocol
-			fs.readFile(rootdir + '/protocols/' + packet.path + '.json', 'utf8', function (err, data) {
-				
-				if (err) {
-					if (err.code == "ENOENT") this.send({id: 'onProtocolFail', reason: 'no protocol', data: packet});
-					else this.log("err", err, rootdir + '/protocols/' + packet.path);
-				} else {
-					try {
-						this.lobby.path = packet.path;
-						this.lobby.protocol = JSON.parse(data);
-					} catch (err) {
-						this.send({id: 'onProtocolFail', reason: 'corrupt protocol', data: packet});
-						return;
-					}
+			//Find the protocol
+			var i;
+			for (i = 0; i < server.protocols.length; i++)
+				if (server.protocols[i].path.toLowerCase() == packet.path.toLowerCase()) {
 					
+					//Update lobby
+					this.lobby.path = packet.path;
+					this.lobby.protocol = server.protocols[i];
+					
+					//Tell Nova
 					nova.send({
 						id: "update",
 						name: this.lobby.name,
@@ -372,10 +367,15 @@ Client.prototype.setProtocol = function(packet) {
 						preview: this.lobby.protocol.meta.preview
 					});
 					
-					this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol, data: packet});
+					//Tel user
+					this.lobby.send({id: 'onProtocol', protocol: this.lobby.protocol});
+					
+					//done
+					return;
 				}
-			}.bind(this));
 			
+			if (i == server.protocols.length)
+				this.send({id: 'onProtocolFail', reason: 'missing protocol', data: packet});
 		} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
 	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
 };
@@ -437,24 +437,37 @@ Client.prototype.getProtocols = function(packet) {
 					
 					//Verify & read
 					if (files[i].substr(files[i].length - 5).toLowerCase() == '.json') {
-						fs.readFile(rootdir + '/protocols/' + files[i], 'utf8', function (err, data) {
+						
+						//Wrap our i variable, as it WILL change, as we're doing an async call
+						(function(i){
 							
-							try {	var protocol = JSON.parse(data);	}
-							catch (err) {return;}
-							
-							protocol.path = files[i];
-							
-							server.protocols.push(protocol);
-							server.protocolIds.push([
-								protocol.meta.title,
-								protocol.meta.date,
-								protocol.meta.version,
-								protocol.meta.author
-							].join(" "));
-							
-							count++;
-							if (count == files.length) this._getProtocols(packet);
-						}.bind(this));
+							//Grab the protocol
+							fs.readFile(rootdir + '/protocols/' + files[i], 'utf8', function (err, data) {
+								
+								//Convert it, on error treat it like read without adding
+								try {	var protocol = JSON.parse(data);	}
+								catch (err) {
+									count++;
+									if (count == files.length) this._getProtocols(packet);
+									return;
+								}
+								
+								//Set path (so we can pick it if some protocols share the same title/date/version
+								protocol.path = files[i].substr(0, files[i].length - 5);
+								
+								//Append to our arrays
+								server.protocols.push(protocol);
+								server.protocolIds.push([
+									protocol.meta.title,
+									protocol.meta.date,
+									protocol.meta.version,
+									protocol.meta.author
+								].join(" "));
+								
+								count++;
+								if (count == files.length) this._getProtocols(packet);
+							}.bind(this));
+						}.bind(this))(i);
 					}
 				}
 			}.bind(this));

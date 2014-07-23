@@ -4,7 +4,7 @@
     "author": "Chakra",
     "date": "2014-07-22",
     "version": 0,
-	"description": "Pong is one of the first computer games that ever created, this simple \"tennis like\" game features two paddles and a ball, the goal is to defeat your opponent by being the first one to gain 10 points, a player gets a point once the opponent misses a ball.",
+	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
 		"small": "http://www.tutorialhero.com/uploads/83861.png",
 		"medium": "http://sandbox.yoyogames.com/extras/image/name/san2/201/593201/original/pong.png",
