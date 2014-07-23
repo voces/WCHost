@@ -380,23 +380,85 @@ Client.prototype.setProtocol = function(packet) {
 	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
 };
 
+Client.prototype._getProtocols = function(packet) {
+	
+	var protocols = [];
+	var oPacket = {id: 'onGetProtocols', protocols: protocols};
+	
+	if (typeof packet.offset == "undefined") packet.offset = 0;
+	
+	//No search string, just return first 100
+	if (typeof packet.search == "undefined" || packet.search == "") {
+		oPacket.subset = false;
+		
+		var i;
+		for (i = packet.offset; i < server.protocols.length && i < 100 + packet.offset; i++)
+			protocols.push(server.protocols[i]);
+		
+		if (i == server.protocols.length)
+			oPacket.complete = true;
+		
+	//Build regex and return first 100 matching
+	} else {
+		oPacket.subset = true;
+		var regex = new RegExp(".*" + packet.search.split("").join(".*") + ".*");
+		
+		var i;
+		for (i = packet.offset, n = 0; i < server.protocols.length && n < 100; i++) {
+			if (regex.test(server.protocolIds[i].toLowerCase())) {
+				protocols.push(server.protocols[i]);
+				n++;
+			}
+		}
+		
+		if (i == server.protocols.length)
+			oPacket.complete = true;
+	}
+	
+	//Return
+	this.send(oPacket);
+};
+
 Client.prototype.getProtocols = function(packet) {
 	
 	//Verify they have access
 	if (this.hasAccess("protocol")) {
 		
-		//Get list of protocols
-		fs.readdir(rootdir + '/protocols/', function(err, files) {
+		//Either not loaded or a force reload is requested, let's do this
+		if (!server.protocols.length || packet.force == true) {
 			
-			//Build it
-			for (var i = 0; i < files.length; i++)
-				if (files[i].substr(files[i].length - 5).toLowerCase() == '.json')
-					files[i] = files[i].substr(0, files[i].length - 5);
+			server.protocols = [];
+			server.protocolIds = [];
 			
-			//Send it
-			this.send({id: 'onGetProtocols', account: this.account, access: access, protocols: files});
-			
-		}.bind(this));
+			//Grab our protocol list
+			fs.readdir(rootdir + '/protocols/', function(err, files) {
+				var count = 0;
+				for (var i = 0; i < files.length; i++) {
+					
+					//Verify & read
+					if (files[i].substr(files[i].length - 5).toLowerCase() == '.json') {
+						fs.readFile(rootdir + '/protocols/' + files[i], 'utf8', function (err, data) {
+							
+							try {	var protocol = JSON.parse(data);	}
+							catch (err) {return;}
+							
+							protocol.path = files[i];
+							
+							server.protocols.push(protocol);
+							server.protocolIds.push([
+								protocol.meta.title,
+								protocol.meta.date,
+								protocol.meta.version,
+								protocol.meta.author
+							].join(" "));
+							
+							count++;
+							if (count == files.length) this._getProtocols(packet);
+						}.bind(this));
+					}
+				}
+			}.bind(this));
+		} else this._getProtocols(packet);
 	} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: packet});
 };
 

@@ -12,7 +12,8 @@ function Lobby(name, owner) {
 	this.settings = {permissions: {}, ranks: {}};
 	this.protocol = null;
 	
-	this.timeout = setTimeout(this.destroy.bind(this), 300000);	//destruct in 5 minutes
+	//destruct in 5 minutes
+	this.timeout = setTimeout(this.destroy.bind(this), 300000);
 	
 	//Log it
 	this.log("Reserved lobby");
@@ -57,7 +58,8 @@ Lobby.prototype.addClient = function(client) {
 		lobby: this.name,
 		accounts: propArrOfArr(this.clients, 'account'),
 		protocol: this.protocol,
-		owner: (this.ownerAccount == client.account ? true : false)
+		owner: this.ownerAccount,
+		isOwner: (this.ownerAccount == client.account ? true : false)
 	});
 	
 	//Make sure timeout is not active

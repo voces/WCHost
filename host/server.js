@@ -18,6 +18,8 @@ Server = function(port) {
 	this.preclients = [];
 	this.clients = [];
 	this.lobbies = [];
+	this.protocols = [];
+	this.protocolIds = [];
 	
 	//Set up the server
 	this.wss = new WebSocket.Server({port: port});
