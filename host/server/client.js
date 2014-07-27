@@ -363,8 +363,8 @@ Client.prototype.setProtocol = function(packet) {
 					nova.send({
 						id: "update",
 						name: this.lobby.name,
-						protocol: this.lobby.protocol.meta.title,
-						preview: this.lobby.protocol.meta.preview
+						protocol: this.lobby.protocol.title,
+						preview: this.lobby.protocol.preview
 					});
 					
 					//Tel user
@@ -436,7 +436,7 @@ Client.prototype.getProtocols = function(packet) {
 				for (var i = 0; i < files.length; i++) {
 					
 					//Verify & read
-					if (files[i].substr(files[i].length - 5).toLowerCase() == '.json') {
+					if (files[i].substr(files[i].length - 3).toLowerCase() == '.js') {
 						
 						//Wrap our i variable, as it WILL change, as we're doing an async call
 						(function(i){
@@ -445,23 +445,26 @@ Client.prototype.getProtocols = function(packet) {
 							fs.readFile(rootdir + '/protocols/' + files[i], 'utf8', function (err, data) {
 								
 								//Convert it, on error treat it like read without adding
-								try {	var protocol = JSON.parse(data);	}
-								catch (err) {
+								try {
+									var protocol = JSON.parse(data.match(/\/\*+((.|[\r\n])*?)\*\//)[1]);
+								} catch (err) {
 									count++;
 									if (count == files.length) this._getProtocols(packet);
 									return;
 								}
 								
+								protocol.script = data;
+								
 								//Set path (so we can pick it if some protocols share the same title/date/version
-								protocol.path = files[i].substr(0, files[i].length - 5);
+								protocol.path = files[i].substr(0, files[i].length - 3);
 								
 								//Append to our arrays
 								server.protocols.push(protocol);
 								server.protocolIds.push([
-									protocol.meta.title,
-									protocol.meta.date,
-									protocol.meta.version,
-									protocol.meta.author
+									protocol.title,
+									protocol.date,
+									protocol.version,
+									protocol.author
 								].join(" "));
 								
 								count++;
