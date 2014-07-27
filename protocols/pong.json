@@ -15,7 +15,5 @@
     "max": 2,
     "observers": true
 },
-"scripts": [
-	"http://68.229.21.36:81/wcp/pong.js"
-]
+"script": "http://68.229.21.36:81/wcr/scripts/pong.js"
 }
