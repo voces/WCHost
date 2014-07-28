@@ -64,7 +64,13 @@ addEventListener('message', function(e) {
 *********************************************************************/
 
 /**********************************
+***********************************
 **	Types
+***********************************
+**********************************/
+
+/**********************************
+**	Paddle
 **********************************/
 
 function Paddle(props) {
@@ -83,7 +89,29 @@ function Paddle(props) {
 		{x:  0.5, y:  2.5}
 	];
 	
+	this.speed = 500;
+	this._slide = {
+		start: NaN,
+		startPosition: {
+			x: NaN,
+			y: NaN
+		},
+		direction: NaN,
+		speed: NaN
+	};
+	
+	this.boundingBox = {
+		max: {
+			y: 500
+		},
+		min: {
+			y: -500
+		}
+	}
+	
 	applyProperties(this, props);
+	
+	widgets.push(this);
 	
 	postMessage({
 		_func: "newWidget", 
@@ -98,15 +126,109 @@ Paddle.prototype = Object.create(Widget.prototype);
 
 /**********************************
 ***********************************
+**	Functions
+***********************************
+**********************************/
+
+function g(obj, props, index) {
+	if (index == props.length - 1) return obj[props[index]];
+	else if (typeof obj[props[index || 0]] != "undefined")
+		g(obj[props[index || 0]], props, (index || 0) + 1);
+	else return false;
+}
+
+function isPlaying(account) {
+	return lPlayer == account || rPlayer == account;
+}
+
+/**********************************
+**	Boundary
+**********************************/
+
+function Boundary(props) {
+	
+	this.max = {
+		x: NaN,
+		y: NaN
+	}
+	
+	this.min = {
+		x: NaN,
+		y: NaN
+	}
+	
+	this.global = false;
+	
+	this.widgets = [];
+	
+	applyProperties(this, props);
+}
+
+/**********************************
+***********************************
 **	Init
 ***********************************
 **********************************/
 
-//Objects
+/**********************************
+**	Globals
+**********************************/
+
+var widgets = [];
+
+var localKeys = {
+	up: false,
+	down: false
+};
+
 var lPaddle = new Paddle({position: {x: -750, y: 0}});
-var rlPaddle = new Paddle({position: {x:  750, y: 0}});
+console.log("lPaddle", lPaddle.randID);
+var rPaddle = new Paddle({position: {x:  750, y: 0}});
+console.log("rPaddle", rPaddle.randID);
 var ball;
-var boundary;
+
+var lPlayer = null;
+var rPlayer = null;
+var waitingPlayers = players;
+
+/**********************************
+**	Now create some objects
+**********************************/
+
+//White part...
+var boundingBox = new Widget({
+	model: {
+		geometry: {
+			size: {
+				width:  1550,
+				height: 1250,
+				depth:  200
+			}
+		}
+	},
+	position: {
+		z: -113
+	}
+});
+
+//Black part (creates a 
+var boundingBox2 = new Widget({
+	model: {
+		geometry: {
+			size: {
+				width:  1525,
+				height: 1200,
+				depth:  1
+			}
+		},
+		material: {
+			color: "black"
+		}
+	},
+	position: {
+		z: -0.5
+	}
+});
 
 //There are already more than two players here, so they are probably already started
 if (players.length > 2) {
@@ -119,11 +241,97 @@ if (players.length > 2) {
 ***********************************
 **********************************/
 
-local.on("onJoin", function(e) {
-	players.concat(e.accounts);
+local.on("widget", function(e) {
+	for (var i = 0; i < widgets.length; i++)
+		if (widgets[i].randID == e.randID) {
+			widgets[i].id = e.oid;
+			break;
+		}
+});
+
+ui.on("keydown", function(e) {
+	
+	if (!isPlaying(localPlayer)) return;
+	
+	if (e.which == 38 && !localKeys.up) {
+		localKeys.up = true;
+		
+		postMessage({
+			_func:	"broadcast",
+			sid:	"up",
+			state:	"down"
+		});
+	}
+		
+	else if (e.which == 40 && !localKeys.down) {
+		localKeys.down = true;
+		
+		postMessage({
+			_func:	"broadcast",
+			sid:	"down",
+			state:	"down"
+		});
+	}
+});
+
+ui.on("keyup", function(e) {
+	
+	if (!isPlaying(localPlayer)) return;
+	
+	if (e.which == 38) {
+		localKeys.up = false;
+		
+		postMessage({
+			_func:	"broadcast",
+			sid:	"up",
+			state:	"up"
+		});
+	}
+		
+	else if (e.which == 40) {
+		localKeys.down = false;
+		
+		postMessage({
+			_func:	"broadcast",
+			sid:	"down",
+			state:	"up"
+		});
+	}
+});
+
+host.on("onBroadcast", function(e) {
+	
+	var paddle;
+	if (e.account == lPlayer)
+		paddle = lPaddle;
+	else if (e.account == rPlayer)
+		paddle = rPaddle;
+	
+	if (e.sid == "up" && paddle)
+		if (e.state == "down")
+			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 0.5});
+		else
+			paddle.stopSlide({timestamp: e.timestamp});
+	else if (e.sid == "down" && paddle)
+		if (e.state == "down")
+			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 1.5});
+		else
+			paddle.stopSlide({timestamp: e.timestamp});
+	
 });
 
 //Users who join mid-game
 host.on("onJoin", function(e) {
 	players.concat(e.accounts);
+	
+	waitingPlayers.concat(e.accounts);
+	
+	
+	/*	We can't be sure of the players, need a vote on state...
+	if (lPlayer == null)
+		lPlayer = waitingPlayers.shift(0, 1);
+		
+	if (rPlayer == null)
+		rPlayer = waitingPlayers.shift(0, 1);*/
+	
 });

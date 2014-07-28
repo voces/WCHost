@@ -66,7 +66,7 @@ Client.prototype.receive = function(data) {
 		var packet = JSON.parse(data);
 		
 		//Report it out first
-		this.log(cc.magenta, packet);
+		//this.log(cc.magenta, packet);
 		
 	//Incoming object isn't in JSON format
 	} catch (err) {
@@ -533,7 +533,7 @@ Client.prototype.send = function(data, useUtil) {
 		if (useUtil) var s = util.inspect(data);
 		else var s = JSON.stringify(data);
 		
-		this.log(cc.green, data);
+		//this.log(cc.green, data);
 		
 		//Send via websocket
 		if (this.type == "ws") this.socket.send(s);
