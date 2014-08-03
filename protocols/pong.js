@@ -5,9 +5,9 @@
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
-		"small": "http://www.tutorialhero.com/uploads/83861.png",
-		"medium": "http://sandbox.yoyogames.com/extras/image/name/san2/201/593201/original/pong.png",
-		"large": "http://d1w7nqlfxfj094.cloudfront.net/wp-content/uploads/2012/11/Pong-game-620x310.jpg"
+		"small": "r/img/pongSmall.png",
+		"medium": "r/img/pongMedium.png",
+		"large": "r/img/pongLarge.jpg"
 	}
 }*/
 
@@ -24,18 +24,17 @@
 var url = _initData.url;
 
 importScripts(
-	url + "r/applyProperties.js",
-	url + "r/EventTarget.js",
-	url + "r/local.js",
-	url + "r/Widget.js"
+	url + "r/src/applyProperties.js",
+	url + "r/src/EventTarget.js",
+	url + "r/src/local.js",
+	url + "r/src/Widget.js",
+	url + "r/src/host.js",
+	url + "r/src/Poll.js"
 );
 
 //Player data we already have
 var players		= _initData.players;
 var localPlayer	= _initData.localPlayer;
-
-//Superevent objects
-var host = new EventTarget();	//For network
 
 addEventListener('message', function(e) {
 	
@@ -88,7 +87,7 @@ function Paddle(props) {
 	this.speed = 500;
 	
 	applyProperties(this, props);
-	console.log(this, this.tempID);
+	
 	postMessage({
 		_func: "createWidget", 
 		tempID: this.tempID,
@@ -111,6 +110,73 @@ function isPlaying(account) {
 	return account != null && (lPlayer == account || rPlayer == account);
 }
 
+function setText(id, text) {
+	postMessage({
+		_func: "setText", 
+		id: id.replace(/#/g, "&35;"),
+		text: text
+	});
+}
+
+function addHTML(html) {
+	postMessage({
+		_func: "addHTML", 
+		html: html
+	});
+}
+
+function removeElement(id) {
+	postMessage({
+		_func: "removeElement", 
+		id: id.replace(/#/g, "&35;")
+	});
+}
+
+function emptyElement(id) {
+	postMessage({
+		_func: "emptyElement", 
+		id: id.replace(/#/g, "&35;")
+	});
+}
+
+function setPlayer(which, account) {
+	if (which == "left") {
+		lPlayer = account;
+		setText("lPlayer", account);
+	} else if (which == "right") {
+		rPlayer = account;
+		setText("rPlayer", account);
+	}
+	
+	var index = waitingPlayers.indexOf(account);
+	if (index >= 0) {
+		waitingPlayers.splice(index, 1);
+		removeElement("wPlayer_" + account);
+	}
+}
+
+function sync(poll, winner) {
+	if (!winner) throw "Got a problem here...";
+	
+	emptyElement("queue");
+	
+	waitingPlayers = winner.data.waitingPlayers;
+	setPlayer("left", winner.data.lPlayer);
+	setPlayer("right", winner.data.rPlayer);
+	
+	var html = [];
+	
+	for (var i = 0; i < waitingPlayers.length; i++)
+		html.push({
+			id: "wPlayer_" + waitingPlayers[i].replace(/#/g, "&35;"),
+			tag: "div",
+			parent: "queue",
+			text: waitingPlayers[i]
+		});
+	
+	addHTML(html);
+}
+
 /**********************************
 ***********************************
 **	Init
@@ -121,18 +187,22 @@ function isPlaying(account) {
 **	Globals
 **********************************/
 
+var broadcast = new EventTarget();
+
 var lPlayer = null;
 var rPlayer = null;
-var waitingPlayers = players;
+var waitingPlayers = players.slice();
+
+var playing = false;
+var updated = false;
+
+var update = new Poll("update", sync, players.slice(0, players.length - 1));
 
 /**********************************
 **	Now create some objects
 **********************************/
 
-var boundingBox = {
-	max: {y: 1075},
-	min: {y: -1075},
-};
+var boundingBox = {max: {y: 475}, min: {y: -475}};
 
 var lPaddle = new Paddle({position: {x: -750}, boundingBox: boundingBox});
 var rPaddle = new Paddle({position: {x:  750}, boundingBox: boundingBox});
@@ -140,76 +210,31 @@ var ball;
 
 //White part...
 var outline = new Widget({
-	model: {
-		geometry: {
-			size: {
-				width:  1550,
-				height: 1250,
-				depth:  200
-			}
-		}
-	},
-	position: {
-		z: -113
-	}
+	model: {geometry: {size: {width: 1550, height: 1250, depth: 200}}},
+	position: {z: -113}
 });
 
 //Black part (creates a 
 var outline2 = new Widget({
 	model: {
-		geometry: {
-			size: {
-				width:  1525,
-				height: 1200,
-				depth:  1
-			}
-		},
-		material: {
-			color: "black"
-		}
-	},
-	position: {
-		z: -0.5
-	}
+		geometry: {size: {width: 1525, height: 1200, depth: 1}},
+		material: {color: "black"}
+	}, position: {z: -0.5}
 });
 
-//Create our UI
-postMessage({
-	_func: "addHTML", 
-	html: [{
-		tag: "div",
-		id: "panel",
-		children: [{
-			tag: "div",
-			id: "header",
-			children: [{
-				tag: "span",
-				id: "lPlayer",
-				class: "player",
-				text: "Left Player"
-			}, {
-				tag: "span",
-				text: " vs. "
-			}, {
-				tag: "span",
-				id: "rPlayer",
-				class: "player",
-				text: "Right Player"
-			}]
-		}, {
-			tag: "div",
-			id: "queue"
-		}]
-	}, {
-		tag: "style",
-		rules: [{
-			id: "panel",
-			position: "absolute",
-			right: "1em",
-			top: "1em"
-		}]
-	}]
-});
+/**********************************
+**	UI
+**********************************/
+
+addHTML([
+	{tag: "div", id: "panel", children: [
+		{tag: "div", id: "header", children: [
+			{tag: "span", id: "lPlayer", class: "player", text: "Left Player"}, 
+			{tag: "span", text: " vs. "},
+			{tag: "span", id: "rPlayer", class: "player", text: "Right Player"}]}, 
+		{tag: "div", id: "queue"}]},
+	{tag: "style", rules: [{id: "panel", position: "absolute", right: "1em", top: "1em"}]}
+]);
 
 /**********************************
 **	Some player stuff
@@ -217,12 +242,63 @@ postMessage({
 
 //This is the only case we know and it means we are the first player in the game
 if (waitingPlayers.length == 1) {
-	lPlayer = waitingPlayers.shift(0, 1);
+	setPlayer("left", waitingPlayers.splice(0, 1)[0]);
+	this.updated = true;
+} else {
+	var html = [];
+	
+	for (var i = 0; i < waitingPlayers.length; i++)
+		html.push({
+			id: "wPlayer_" + waitingPlayers[i].replace(/#/g, "&35;"),
+			tag: "div",
+			parent: "queue",
+			text: waitingPlayers[i]
+		});
+	
+	addHTML(html);
 }
 
 /**********************************
 ***********************************
-**	Hooks
+**	Broadcasting
+***********************************
+**********************************/
+
+broadcast.on("keydown", function(e) {
+	
+	var paddle;
+	if (e.account == lPlayer)
+		paddle = lPaddle;
+	else if (e.account == rPlayer)
+		paddle = rPaddle;
+	
+	if (!paddle) return;
+	
+	if (e.which == 38)
+		paddle.slide({timestamp: e.timestamp, direction: Math.PI * 0.5});
+	else if (e.which == 40)
+		paddle.slide({timestamp: e.timestamp, direction: Math.PI * 1.5});
+});
+
+broadcast.on("keyup", function(e) {
+	
+	var paddle;
+	if (e.account == lPlayer)
+		paddle = lPaddle;
+	else if (e.account == rPlayer)
+		paddle = rPaddle;
+	
+	if (!paddle) return;
+	
+	if (e.which == 38)
+		paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 0.5});
+	else if (e.which == 40)
+		paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 1.5});
+});
+
+/**********************************
+***********************************
+**	Hooking (passive & active)
 ***********************************
 **********************************/
 
@@ -269,41 +345,34 @@ local.on("keyup", function(e) {
 });
 
 host.on("onBroadcast", function(e) {
-	
-	var paddle;
-	if (e.account == lPlayer)
-		paddle = lPaddle;
-	else if (e.account == rPlayer)
-		paddle = rPaddle;
-	
-	if (!paddle) return;
-	
-	if (e.sid == "keydown") {
-		if (e.which == 38)
-			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 0.5});
-		else if (e.which == 40)
-			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 1.5});
-	} else if (e.sid == "keyup") {
-		if (e.which == 38)
-			paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 0.5});
-		else if (e.which == 40)
-			paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 1.5});
-	}
-	
+	broadcast.fire(e.sid, e);
 });
 
 //Users who join mid-game
 host.on("onJoin", function(e) {
-	players.concat(e.accounts);
+	players = players.concat(e.accounts);
 	
-	waitingPlayers.concat(e.accounts);
+	waitingPlayers = waitingPlayers.concat(e.accounts);
 	
-	
-	/*	We can't be sure of the players, need a vote on state...
-	if (lPlayer == null)
-		lPlayer = waitingPlayers.shift(0, 1);
+	if (updated && !playing) {
+		if (lPlayer == null)
+			setPlayer("left", waitingPlayers.splice(0, 1)[0]);
+		else if (rPlayer == null)
+			setPlayer("right", waitingPlayers.splice(0, 1)[0]);
 		
-	if (rPlayer == null)
-		rPlayer = waitingPlayers.shift(0, 1);*/
+		update.start({lPlayer: lPlayer, rPlayer: rPlayer, waitingPlayers: waitingPlayers}, false, players.slice(0, players.length - 1));
+	}
 	
+	var html = [];
+	
+	for (var i = 0; i < e.accounts.length; i++)
+		if (e.accounts[i] != lPlayer && e.accounts[i] != rPlayer)
+			html.push({
+				id: "wPlayer_" + e.accounts[i].replace(/#/g, "&35;"),
+				tag: "div",
+				parent: "queue",
+				text: e.accounts[i]
+			});
+	
+	if (html.length) addHTML(html);
 });
