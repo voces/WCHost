@@ -1,7 +1,7 @@
 /*{
 	"title": "Pong",
 	"author": "Chakra",
-	"date": "2014-07-27",
+	"date": "2014-08-02",
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
@@ -26,6 +26,7 @@ var url = _initData.url;
 importScripts(
 	url + "r/applyProperties.js",
 	url + "r/EventTarget.js",
+	url + "r/local.js",
 	url + "r/Widget.js"
 );
 
@@ -34,9 +35,7 @@ var players		= _initData.players;
 var localPlayer	= _initData.localPlayer;
 
 //Superevent objects
-var local	= new EventTarget();	//For callbacks on functions
-var ui		= new EventTarget();	//For user interface
-var host	= new EventTarget();	//For network
+var host = new EventTarget();	//For network
 
 addEventListener('message', function(e) {
 	
@@ -47,9 +46,6 @@ addEventListener('message', function(e) {
 	else if (e.data.type == "local")
 		local.fire(e.data.data.id, e.data.data);
 		
-	else if (e.data.type == "ui")
-		ui.fire(e.data.data.id, e.data.data);
-	
 	//Some other type of traffic not yet programmed
 	else console.log("uncoded data type");
 	
@@ -90,34 +86,15 @@ function Paddle(props) {
 	];
 	
 	this.speed = 500;
-	this._slide = {
-		start: NaN,
-		startPosition: {
-			x: NaN,
-			y: NaN
-		},
-		direction: NaN,
-		speed: NaN
-	};
-	
-	this.boundingBox = {
-		max: {
-			y: 500
-		},
-		min: {
-			y: -500
-		}
-	}
 	
 	applyProperties(this, props);
-	
-	widgets.push(this);
-	
+	console.log(this, this.tempID);
 	postMessage({
-		_func: "newWidget", 
-		randID: this.randID,
+		_func: "createWidget", 
+		tempID: this.tempID,
 		position: this.position,
 		offset: this.offset,
+		boundingBox: this.boundingBox,
 		model: this.model
 	});
 }
@@ -130,38 +107,8 @@ Paddle.prototype = Object.create(Widget.prototype);
 ***********************************
 **********************************/
 
-function g(obj, props, index) {
-	if (index == props.length - 1) return obj[props[index]];
-	else if (typeof obj[props[index || 0]] != "undefined")
-		g(obj[props[index || 0]], props, (index || 0) + 1);
-	else return false;
-}
-
 function isPlaying(account) {
-	return lPlayer == account || rPlayer == account;
-}
-
-/**********************************
-**	Boundary
-**********************************/
-
-function Boundary(props) {
-	
-	this.max = {
-		x: NaN,
-		y: NaN
-	}
-	
-	this.min = {
-		x: NaN,
-		y: NaN
-	}
-	
-	this.global = false;
-	
-	this.widgets = [];
-	
-	applyProperties(this, props);
+	return account != null && (lPlayer == account || rPlayer == account);
 }
 
 /**********************************
@@ -174,19 +121,6 @@ function Boundary(props) {
 **	Globals
 **********************************/
 
-var widgets = [];
-
-var localKeys = {
-	up: false,
-	down: false
-};
-
-var lPaddle = new Paddle({position: {x: -750, y: 0}});
-console.log("lPaddle", lPaddle.randID);
-var rPaddle = new Paddle({position: {x:  750, y: 0}});
-console.log("rPaddle", rPaddle.randID);
-var ball;
-
 var lPlayer = null;
 var rPlayer = null;
 var waitingPlayers = players;
@@ -195,8 +129,17 @@ var waitingPlayers = players;
 **	Now create some objects
 **********************************/
 
+var boundingBox = {
+	max: {y: 1075},
+	min: {y: -1075},
+};
+
+var lPaddle = new Paddle({position: {x: -750}, boundingBox: boundingBox});
+var rPaddle = new Paddle({position: {x:  750}, boundingBox: boundingBox});
+var ball;
+
 //White part...
-var boundingBox = new Widget({
+var outline = new Widget({
 	model: {
 		geometry: {
 			size: {
@@ -212,7 +155,7 @@ var boundingBox = new Widget({
 });
 
 //Black part (creates a 
-var boundingBox2 = new Widget({
+var outline2 = new Widget({
 	model: {
 		geometry: {
 			size: {
@@ -230,9 +173,51 @@ var boundingBox2 = new Widget({
 	}
 });
 
-//There are already more than two players here, so they are probably already started
-if (players.length > 2) {
-	
+//Create our UI
+postMessage({
+	_func: "addHTML", 
+	html: [{
+		tag: "div",
+		id: "panel",
+		children: [{
+			tag: "div",
+			id: "header",
+			children: [{
+				tag: "span",
+				id: "lPlayer",
+				class: "player",
+				text: "Left Player"
+			}, {
+				tag: "span",
+				text: " vs. "
+			}, {
+				tag: "span",
+				id: "rPlayer",
+				class: "player",
+				text: "Right Player"
+			}]
+		}, {
+			tag: "div",
+			id: "queue"
+		}]
+	}, {
+		tag: "style",
+		rules: [{
+			id: "panel",
+			position: "absolute",
+			right: "1em",
+			top: "1em"
+		}]
+	}]
+});
+
+/**********************************
+**	Some player stuff
+**********************************/
+
+//This is the only case we know and it means we are the first player in the game
+if (waitingPlayers.length == 1) {
+	lPlayer = waitingPlayers.shift(0, 1);
 }
 
 /**********************************
@@ -241,60 +226,44 @@ if (players.length > 2) {
 ***********************************
 **********************************/
 
-local.on("widget", function(e) {
-	for (var i = 0; i < widgets.length; i++)
-		if (widgets[i].randID == e.randID) {
-			widgets[i].id = e.oid;
-			break;
-		}
-});
-
-ui.on("keydown", function(e) {
+local.on("keydown", function(e) {
 	
 	if (!isPlaying(localPlayer)) return;
 	
-	if (e.which == 38 && !localKeys.up) {
-		localKeys.up = true;
-		
+	if (e.which == 38 && e.firstDown) {
 		postMessage({
 			_func:	"broadcast",
-			sid:	"up",
-			state:	"down"
+			sid:	"keydown",
+			which:	38
 		});
 	}
 		
-	else if (e.which == 40 && !localKeys.down) {
-		localKeys.down = true;
-		
+	else if (e.which == 40 && e.firstDown) {
 		postMessage({
 			_func:	"broadcast",
-			sid:	"down",
-			state:	"down"
+			sid:	"keydown",
+			which:	40
 		});
 	}
 });
 
-ui.on("keyup", function(e) {
+local.on("keyup", function(e) {
 	
 	if (!isPlaying(localPlayer)) return;
 	
 	if (e.which == 38) {
-		localKeys.up = false;
-		
 		postMessage({
 			_func:	"broadcast",
-			sid:	"up",
-			state:	"up"
+			sid:	"keyup",
+			which:	38
 		});
 	}
 		
 	else if (e.which == 40) {
-		localKeys.down = false;
-		
 		postMessage({
 			_func:	"broadcast",
-			sid:	"down",
-			state:	"up"
+			sid:	"keyup",
+			which:	40
 		});
 	}
 });
@@ -307,16 +276,19 @@ host.on("onBroadcast", function(e) {
 	else if (e.account == rPlayer)
 		paddle = rPaddle;
 	
-	if (e.sid == "up" && paddle)
-		if (e.state == "down")
+	if (!paddle) return;
+	
+	if (e.sid == "keydown") {
+		if (e.which == 38)
 			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 0.5});
-		else
-			paddle.stopSlide({timestamp: e.timestamp});
-	else if (e.sid == "down" && paddle)
-		if (e.state == "down")
+		else if (e.which == 40)
 			paddle.slide({timestamp: e.timestamp, direction: Math.PI * 1.5});
-		else
-			paddle.stopSlide({timestamp: e.timestamp});
+	} else if (e.sid == "keyup") {
+		if (e.which == 38)
+			paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 0.5});
+		else if (e.which == 40)
+			paddle.stopSlide({timestamp: e.timestamp, direction: Math.PI * 1.5});
+	}
 	
 });
 
