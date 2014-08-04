@@ -153,13 +153,18 @@ function setPlayer(which, account) {
 		waitingPlayers.splice(index, 1);
 		removeElement("wPlayer_" + account);
 	}
+	
+	//if (lPlayer != null && rPlayer != null)
 }
 
 function sync(poll, winner) {
 	if (!winner) throw "Got a problem here...";
 	
+	updated = true;
+	
 	emptyElement("queue");
 	
+	playing = winner.data.playing;
 	waitingPlayers = winner.data.waitingPlayers;
 	setPlayer("left", winner.data.lPlayer);
 	setPlayer("right", winner.data.rPlayer);
@@ -175,6 +180,8 @@ function sync(poll, winner) {
 		});
 	
 	addHTML(html);
+	
+	console.log("let's start at " + winner.data.start);
 }
 
 /**********************************
@@ -350,6 +357,7 @@ host.on("onBroadcast", function(e) {
 
 //Users who join mid-game
 host.on("onJoin", function(e) {
+	console.log("onJoin", e);
 	players = players.concat(e.accounts);
 	
 	waitingPlayers = waitingPlayers.concat(e.accounts);
@@ -360,7 +368,13 @@ host.on("onJoin", function(e) {
 		else if (rPlayer == null)
 			setPlayer("right", waitingPlayers.splice(0, 1)[0]);
 		
-		update.start({lPlayer: lPlayer, rPlayer: rPlayer, waitingPlayers: waitingPlayers}, false, players.slice(0, players.length - 1));
+		update.start({
+			lPlayer: lPlayer,
+			rPlayer: rPlayer,
+			waitingPlayers: waitingPlayers,
+			playing: playing,
+			start: e.timestamp
+		}, false, players.slice(0, players.length - 1));
 	}
 	
 	var html = [];
@@ -375,4 +389,22 @@ host.on("onJoin", function(e) {
 			});
 	
 	if (html.length) addHTML(html);
+});
+
+host.on("onLeave", function(e) {
+	var index = players.indexOf(e.account);
+	players.splice(index, 1);
+	
+	if (e.account == lPlayer)
+		setPlayer("left", waitingPlayers[0] || null);
+	else if (e.account == rPlayer)
+		setPlayer("right", waitingPlayers[0] || null);
+	else {
+		index = waitingPlayers.indexOf(e.account);
+		
+		if (index >= 0) {
+			waitingPlayers.splice(index, 1);
+			removeElement("wPlayer_" + e.account);
+		}
+	}
 });

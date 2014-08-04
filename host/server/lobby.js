@@ -44,7 +44,7 @@ Lobby.prototype.destroy = function() {
 Lobby.prototype.addClient = function(client) {
 	
 	//Tell our clients
-	this.send({id:'onJoin', lobby: this.name, accounts: [client.account]});
+	this.send({id: 'onJoin', lobby: this.name, accounts: [client.account]});
 	
 	//So we can loop through clients...
 	this.clients.push(client);
@@ -113,33 +113,23 @@ Lobby.prototype.unreserve = function(account) {
 //	Lobby communication
 //////////////////////////////////////////////
 
-Lobby.prototype.broadcast = function(data, account) {
-	this.send(data, account);
-	
-	this.broadcastID++;
-};
-
-Lobby.prototype.update = function(data, account) {
-	this.send(data, account);
-	
-	this.updateID++;
-};
-
-Lobby.prototype.send = function(data, client) {
+Lobby.prototype.send = function(packet, client) {
 	
 	//Append a lobby name to the packet
-	//	This makes data.lobby effectively reserved for any data transmitting through this function
-	data.lobby = this.name;
+	//	This makes packet.lobby effectively reserved for any data transmitting through this function
+	packet.lobby = this.name;
 	
-	//Only allows data.account to be set if a client is passed, otherwise kill it
-	if (client) data.account = client.account;
-	else delete data.account;
+	//Only allows packet.account to be set if a client is passed, otherwise kill it
+	if (client) packet.account = client.account;
+	else delete packet.account;
+	
+	packet.timestamp = new Date().getTime();
 	
 	//Loop through clients in lobby
 	for (var x = 0; x < this.clients.length; x++) {
 		
 		//Send via client
-		this.clients[x].send(data);
+		this.clients[x].send(packet);
 		
 	}
 	

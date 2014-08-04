@@ -248,12 +248,10 @@ Client.prototype.broadcast = function(packet) {
 		
 		//Modify data
 		packet.id = 'onBroadcast';
-		packet.timestamp = new Date().getTime();
 		
 		//Broadcast to lobby
-		this.lobby.broadcast(packet, this);
-		//this.lobby.send(data, this);
-	
+		this.lobby.send(packet, this);
+		
 	//Else give them a fail
 	} else this.send({id: 'onBroadcastFail', reason: 'lobby', data: packet});
 }
