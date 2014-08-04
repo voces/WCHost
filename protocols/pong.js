@@ -1,7 +1,7 @@
 /*{
 	"title": "Pong",
 	"author": "Chakra",
-	"date": "2014-08-02",
+	"date": "2014-08-03",
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
@@ -11,12 +11,10 @@
 	}
 }*/
 
-
-
 /*********************************************************************
 **********************************************************************
 **********************************************************************
-**	Standard stuff, expected in all protocols
+**	Standard stuff, useful in all protocols
 **********************************************************************
 **********************************************************************
 *********************************************************************/
@@ -24,6 +22,8 @@
 var url = _initData.url;
 
 importScripts(
+	url + "r/src/seedrandom.min.js",
+	url + "r/src/natives.js",
 	url + "r/src/applyProperties.js",
 	url + "r/src/EventTarget.js",
 	url + "r/src/local.js",
@@ -64,10 +64,6 @@ addEventListener('message', function(e) {
 ***********************************
 **********************************/
 
-/**********************************
-**	Paddle
-**********************************/
-
 function Paddle(props) {
 	Widget.apply(this, [props, true])
 	
@@ -83,6 +79,11 @@ function Paddle(props) {
 		{x:  0.5, y: -2.5},
 		{x:  0.5, y:  2.5}
 	];
+	
+	this.boundingBox = {
+		max: {x: NaN, y: 475},
+		min: {x: NaN, y: -475}
+	};
 	
 	this.speed = 500;
 	
@@ -100,6 +101,33 @@ function Paddle(props) {
 
 Paddle.prototype = Object.create(Widget.prototype);
 
+function Ball(props) {
+	Widget.apply(this, [props, true])
+	
+	this.model.geometry = {
+		shape: "IcosahedronGeometry",
+		radius: 25,
+		detail: 2
+	};
+	
+	this.collison = 50;
+	
+	this.speed = 500;
+	
+	applyProperties(this, props);
+	
+	postMessage({
+		_func: "createWidget", 
+		tempID: this.tempID,
+		position: this.position,
+		offset: this.offset,
+		boundingBox: this.boundingBox,
+		model: this.model
+	});
+}
+
+Ball.prototype = Object.create(Widget.prototype);
+
 /**********************************
 ***********************************
 **	Functions
@@ -108,35 +136,6 @@ Paddle.prototype = Object.create(Widget.prototype);
 
 function isPlaying(account) {
 	return account != null && (lPlayer == account || rPlayer == account);
-}
-
-function setText(id, text) {
-	postMessage({
-		_func: "setText", 
-		id: id.replace(/#/g, "&35;"),
-		text: text
-	});
-}
-
-function addHTML(html) {
-	postMessage({
-		_func: "addHTML", 
-		html: html
-	});
-}
-
-function removeElement(id) {
-	postMessage({
-		_func: "removeElement", 
-		id: id.replace(/#/g, "&35;")
-	});
-}
-
-function emptyElement(id) {
-	postMessage({
-		_func: "emptyElement", 
-		id: id.replace(/#/g, "&35;")
-	});
 }
 
 function setPlayer(which, account) {
@@ -153,8 +152,22 @@ function setPlayer(which, account) {
 		waitingPlayers.splice(index, 1);
 		removeElement("wPlayer_" + account);
 	}
+}
+
+function start() {
+	lPaddle.setPosition({position: {x: -750, y: 0}, timestamp: this.timestamp});
+	rPaddle.setPosition({position: {x:  750, y: 0}, timestamp: this.timestamp});
 	
-	//if (lPlayer != null && rPlayer != null)
+	playing = true;
+	
+	//ball.slide({timestamp: this.timestamp, direction: Math.random() * Math.PI * 2});
+}
+
+function stop(timestamp) {
+	playing = false;
+	
+	ball.stopSlide({timestamp: timestamp});
+	ball.setPosition({position: {x:  0, y: 0}, timestamp: timestamp});
 }
 
 function sync(poll, winner) {
@@ -181,7 +194,10 @@ function sync(poll, winner) {
 	
 	addHTML(html);
 	
-	console.log("let's start at " + winner.data.start);
+	Math.seedrandom(winner.data.start);
+	
+	var difference = Date.now() - winner.data.start + 3000;
+	setTimeout(start.bind({timestamp: winner.data.start + 3000}), difference);
 }
 
 /**********************************
@@ -209,11 +225,9 @@ var update = new Poll("update", sync, players.slice(0, players.length - 1));
 **	Now create some objects
 **********************************/
 
-var boundingBox = {max: {y: 475}, min: {y: -475}};
-
-var lPaddle = new Paddle({position: {x: -750}, boundingBox: boundingBox});
-var rPaddle = new Paddle({position: {x:  750}, boundingBox: boundingBox});
-var ball;
+var lPaddle = new Paddle({position: {x: -750}});
+var rPaddle = new Paddle({position: {x:  750}});
+var ball = new Ball();
 
 //White part...
 var outline = new Widget({
@@ -236,9 +250,9 @@ var outline2 = new Widget({
 addHTML([
 	{tag: "div", id: "panel", children: [
 		{tag: "div", id: "header", children: [
-			{tag: "span", id: "lPlayer", class: "player", text: "Left Player"}, 
+			{tag: "span", id: "lPlayer", class: "player", text: "null"}, 
 			{tag: "span", text: " vs. "},
-			{tag: "span", id: "rPlayer", class: "player", text: "Right Player"}]}, 
+			{tag: "span", id: "rPlayer", class: "player", text: "null"}]}, 
 		{tag: "div", id: "queue"}]},
 	{tag: "style", rules: [{id: "panel", position: "absolute", right: "1em", top: "1em"}]}
 ]);
@@ -357,12 +371,11 @@ host.on("onBroadcast", function(e) {
 
 //Users who join mid-game
 host.on("onJoin", function(e) {
-	console.log("onJoin", e);
 	players = players.concat(e.accounts);
 	
 	waitingPlayers = waitingPlayers.concat(e.accounts);
 	
-	if (updated && !playing) {
+	if (updated) {
 		if (lPlayer == null)
 			setPlayer("left", waitingPlayers.splice(0, 1)[0]);
 		else if (rPlayer == null)
@@ -395,11 +408,13 @@ host.on("onLeave", function(e) {
 	var index = players.indexOf(e.account);
 	players.splice(index, 1);
 	
-	if (e.account == lPlayer)
+	if (e.account == lPlayer) {
 		setPlayer("left", waitingPlayers[0] || null);
-	else if (e.account == rPlayer)
+		stop(e.timestamp);
+	} else if (e.account == rPlayer) {
 		setPlayer("right", waitingPlayers[0] || null);
-	else {
+		stop(e.timestamp);
+	} else {
 		index = waitingPlayers.indexOf(e.account);
 		
 		if (index >= 0) {
