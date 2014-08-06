@@ -160,7 +160,7 @@ function start() {
 	
 	playing = true;
 	
-	//ball.slide({timestamp: this.timestamp, direction: Math.random() * Math.PI * 2});
+	ball.slide({timestamp: this.timestamp, direction: Math.random() * Math.PI * 2});
 }
 
 function stop(timestamp) {
