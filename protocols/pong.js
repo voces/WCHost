@@ -1,7 +1,7 @@
 /*{
 	"title": "Pong",
 	"author": "Chakra",
-	"date": "2014-08-03",
+	"date": "2014-08-07",
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
@@ -29,7 +29,11 @@ importScripts(
 	url + "r/src/local.js",
 	url + "r/src/Widget.js",
 	url + "r/src/host.js",
-	url + "r/src/Poll.js"
+	url + "r/src/Poll.js",
+	
+	url + "r/src/Point.js",
+	url + "r/src/Segment.js",
+	url + "r/src/Polygon.js"
 );
 
 //Player data we already have
@@ -154,13 +158,72 @@ function setPlayer(which, account) {
 	}
 }
 
+function reflect(normal, timestamp) {
+	
+	var now = new Point(ball.position.x, ball.position.y)
+		next = now.polarOffset(2000, normal - ball._slide.direction);
+	
+	var nextIntercept = bounds.intercept(new Segment(now, next)),
+		cross = timestamp + nextIntercept.uDistance / ball.speed * 1000;
+	
+	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
+		setTimeout(checkScore.bind({timestamp: cross}), cross - Date.now());
+	else
+		setTimeout(bounce.bind({timestamp: cross}), cross - Date.now());
+	
+	ball.slide({timestamp: timestamp, direction: normal - ball._slide.direction});
+}
+
+function checkScore() {
+	console.log(ball.getPosition(this.timestamp));
+	//rScore
+	if (ball.position.x > 0) {
+		if (Math.abs(rPaddle.position.y - ball.position.y) < 150) {
+			ball.setX({timestamp: this.timestamp, x: parseInt(ball.position.x.toFixed(0))});
+			ball.setSpeed(ball.speed + 5);
+			
+			reflect(Math.PI, this.timestamp);
+		} else console.log("SCORE right!!");
+	
+	//lScore
+	} else {
+		if (Math.abs(lPaddle.position.y - ball.position.y) < 150) {
+			ball.setX({timestamp: this.timestamp, x: parseInt(ball.position.x.toFixed(0))});
+			ball.setSpeed(ball.speed + 5);
+			
+			reflect(Math.PI, this.timestamp);
+		} else console.log("SCORE left!!");
+	}
+}
+
+function bounce() {
+	ball.getPosition(this.timestamp);
+	
+	ball.setY({timestamp: this.timestamp, y: parseInt(ball.position.y.toFixed(0))});
+	
+	reflect(0, this.timestamp);
+}
+
 function start() {
 	lPaddle.setPosition({position: {x: -750, y: 0}, timestamp: this.timestamp});
 	rPaddle.setPosition({position: {x:  750, y: 0}, timestamp: this.timestamp});
 	
 	playing = true;
 	
-	ball.slide({timestamp: this.timestamp, direction: Math.random() * Math.PI * 2});
+	var angle = 1.396;//Math.random() * Math.PI * 2;
+	
+	var now = new Point(0, 0)
+		next = now.polarOffset(2000, angle);
+	
+	var nextIntercept = bounds.intercept(new Segment(now, next)),
+		cross = this.timestamp + nextIntercept.uDistance / ball.speed * 1000;
+	
+	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
+		setTimeout(checkScore.bind({timestamp: cross}), cross - Date.now());
+	else
+		setTimeout(bounce.bind({timestamp: cross}), cross - Date.now());
+	
+	ball.slide({timestamp: this.timestamp, direction: angle});
 }
 
 function stop(timestamp) {
@@ -228,6 +291,12 @@ var update = new Poll("update", sync, players.slice(0, players.length - 1));
 var lPaddle = new Paddle({position: {x: -750}});
 var rPaddle = new Paddle({position: {x:  750}});
 var ball = new Ball();
+
+var bounds = new Polygon({vertices: [
+	new Point(-737.5,  600),
+	new Point( 737.5,  600),
+	new Point( 737.5, -600),
+	new Point(-737.5, -600)]});
 
 //White part...
 var outline = new Widget({
