@@ -1,7 +1,7 @@
 /*{
 	"title": "Pong",
 	"author": "Chakra",
-	"date": "2014-08-07",
+	"date": "2014-08-08",
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
@@ -42,7 +42,7 @@ var localPlayer	= _initData.localPlayer;
 
 addEventListener('message', function(e) {
 	
-	//Reatime traffic from a host
+	//Real-time traffic from a host
 	if (e.data.type == "host")
 		host.fire(e.data.data.id, e.data.data);
 	
@@ -158,50 +158,63 @@ function setPlayer(which, account) {
 	}
 }
 
-function reflect(normal, timestamp) {
+function reflect(normal, context, speedIncrease) {
+	
+	ball.setPosition({position: context.intercept});
+	
+	var speed = ball._slide.speed;
+	if (speedIncrease)
+		speed += 20;
 	
 	var now = new Point(ball.position.x, ball.position.y)
 		next = now.polarOffset(2000, normal - ball._slide.direction);
 	
 	var nextIntercept = bounds.intercept(new Segment(now, next)),
-		cross = timestamp + nextIntercept.uDistance / ball.speed * 1000;
+		cross = context.timestamp + nextIntercept.uDistance / speed * 1000;
+	
+	var newContext = {
+		timestamp: cross,
+		intercept: nextIntercept,
+		distance: nextIntercept.uDistance,
+		delta: cross - Date.now(),
+		cross: cross
+	};
 	
 	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
-		setTimeout(checkScore.bind({timestamp: cross}), cross - Date.now());
-	else
-		setTimeout(bounce.bind({timestamp: cross}), cross - Date.now());
+		setTimeout(checkScore.bind(newContext), cross - Date.now());
+	else {
+		setTimeout(bounce.bind(newContext), cross - Date.now());
+	}
 	
-	ball.slide({timestamp: timestamp, direction: normal - ball._slide.direction});
+	ball.slide({
+		timestamp: context.timestamp,
+		direction: normal - ball._slide.direction,
+		speed: speed
+	});
 }
 
 function checkScore() {
-	console.log(ball.getPosition(this.timestamp));
+	
 	//rScore
+	ball.getPosition(this.timestamp);
+	
 	if (ball.position.x > 0) {
-		if (Math.abs(rPaddle.position.y - ball.position.y) < 150) {
-			ball.setX({timestamp: this.timestamp, x: parseInt(ball.position.x.toFixed(0))});
-			ball.setSpeed(ball.speed + 5);
-			
-			reflect(Math.PI, this.timestamp);
-		} else console.log("SCORE right!!");
+		rPaddle.getPosition(this.timestamp);
+		if (Math.abs(rPaddle.position.y - ball.position.y) < 150)
+			reflect(Math.PI, this, true);
+		else console.log("SCORE right!!");
 	
 	//lScore
 	} else {
-		if (Math.abs(lPaddle.position.y - ball.position.y) < 150) {
-			ball.setX({timestamp: this.timestamp, x: parseInt(ball.position.x.toFixed(0))});
-			ball.setSpeed(ball.speed + 5);
-			
-			reflect(Math.PI, this.timestamp);
-		} else console.log("SCORE left!!");
+		lPaddle.getPosition(this.timestamp);
+		if (Math.abs(lPaddle.position.y - ball.position.y) < 150)
+			reflect(Math.PI, this, true);
+		else console.log("SCORE left!!");
 	}
 }
 
 function bounce() {
-	ball.getPosition(this.timestamp);
-	
-	ball.setY({timestamp: this.timestamp, y: parseInt(ball.position.y.toFixed(0))});
-	
-	reflect(0, this.timestamp);
+	reflect(0, this);
 }
 
 function start() {
@@ -210,7 +223,7 @@ function start() {
 	
 	playing = true;
 	
-	var angle = 1.396;//Math.random() * Math.PI * 2;
+	var angle = Math.random() * Math.PI * 2;
 	
 	var now = new Point(0, 0)
 		next = now.polarOffset(2000, angle);
@@ -218,10 +231,18 @@ function start() {
 	var nextIntercept = bounds.intercept(new Segment(now, next)),
 		cross = this.timestamp + nextIntercept.uDistance / ball.speed * 1000;
 	
+	var newContext = {
+		timestamp: cross,
+		intercept: nextIntercept,
+		distance: nextIntercept.uDistance,
+		delta: cross - Date.now(),
+		cross: cross
+	};
+	
 	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
-		setTimeout(checkScore.bind({timestamp: cross}), cross - Date.now());
+		setTimeout(checkScore.bind(newContext), cross - Date.now());
 	else
-		setTimeout(bounce.bind({timestamp: cross}), cross - Date.now());
+		setTimeout(bounce.bind(newContext), cross - Date.now());
 	
 	ball.slide({timestamp: this.timestamp, direction: angle});
 }
