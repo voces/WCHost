@@ -362,6 +362,8 @@ Client.prototype.setProtocol = function(packet) {
 						id: "update",
 						name: this.lobby.name,
 						protocol: this.lobby.protocol.title,
+						date: this.lobby.protocol.date,
+						version: this.lobby.protocol.version,
 						preview: this.lobby.protocol.preview
 					});
 					

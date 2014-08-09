@@ -116,6 +116,11 @@ function Ball(props) {
 	
 	this.collison = 50;
 	
+	this.boundingBox = {
+		max: {x:  712.5, y:  600},
+		min: {x: -712.5, y: -600}
+	};
+	
 	this.speed = 500;
 	
 	applyProperties(this, props);
@@ -166,12 +171,16 @@ function reflect(normal, context, speedIncrease) {
 	if (speedIncrease)
 		speed += 20;
 	
+	var direction = (normal - ball._slide.direction) % (2 * Math.PI);
+	if (direction < 0) direction += (2 * Math.PI);
+	
 	var now = new Point(ball.position.x, ball.position.y)
-		next = now.polarOffset(2000, normal - ball._slide.direction);
+		next = now.polarOffset(2000, direction);
 	
 	var nextIntercept = bounds.intercept(new Segment(now, next)),
 		cross = context.timestamp + nextIntercept.uDistance / speed * 1000;
 	
+	if (nextIntercept == false) return;
 	var newContext = {
 		timestamp: cross,
 		intercept: nextIntercept,
@@ -180,7 +189,7 @@ function reflect(normal, context, speedIncrease) {
 		cross: cross
 	};
 	
-	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
+	if (nextIntercept.x == 712.5 || nextIntercept.x == -712.5)
 		setTimeout(checkScore.bind(newContext), cross - Date.now());
 	else {
 		setTimeout(bounce.bind(newContext), cross - Date.now());
@@ -188,9 +197,20 @@ function reflect(normal, context, speedIncrease) {
 	
 	ball.slide({
 		timestamp: context.timestamp,
-		direction: normal - ball._slide.direction,
+		direction: direction,
 		speed: speed
 	});
+}
+
+function twinkle() {
+	if (this.count++ > 3) {
+		this.which.update({mesh: {material: {color: {b: 1, g: 1}}}});
+		ball.setPosition({position: {x: 0, y: 0}});
+		setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
+	} else {
+		this.which.update({mesh: {material: {color: {b: this.count%2, g: this.count%2}}}});
+		setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: this.which, count: this.count}), 300);
+	}
 }
 
 function checkScore() {
@@ -202,14 +222,24 @@ function checkScore() {
 		rPaddle.getPosition(this.timestamp);
 		if (Math.abs(rPaddle.position.y - ball.position.y) < 150)
 			reflect(Math.PI, this, true);
-		else console.log("SCORE right!!");
+		else {
+			ball.stopSlide({timestamp: this.timestamp});
+			rPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
+			
+			setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: rPaddle, count: 0}), 300);
+		}
 	
 	//lScore
 	} else {
 		lPaddle.getPosition(this.timestamp);
 		if (Math.abs(lPaddle.position.y - ball.position.y) < 150)
 			reflect(Math.PI, this, true);
-		else console.log("SCORE left!!");
+		else {
+			ball.stopSlide({timestamp: this.timestamp});
+			lPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
+			
+			setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: lPaddle, count: 0}), 300);
+		}
 	}
 }
 
@@ -223,7 +253,7 @@ function start() {
 	
 	playing = true;
 	
-	var angle = Math.random() * Math.PI * 2;
+	var angle = Math.random() * Math.random() * (Math.random() * 2 - 1) * Math.PI + (Math.random() > .5 ? 0 : Math.PI);
 	
 	var now = new Point(0, 0)
 		next = now.polarOffset(2000, angle);
@@ -239,12 +269,12 @@ function start() {
 		cross: cross
 	};
 	
-	if (nextIntercept.x == 737.5 || nextIntercept.x == -737.5)
+	if (nextIntercept.x == 712.5 || nextIntercept.x == -712.5)
 		setTimeout(checkScore.bind(newContext), cross - Date.now());
 	else
 		setTimeout(bounce.bind(newContext), cross - Date.now());
 	
-	ball.slide({timestamp: this.timestamp, direction: angle});
+	ball.slide({timestamp: this.timestamp, direction: angle, position: {x: 0, y: 0}});
 }
 
 function stop(timestamp) {
@@ -314,10 +344,10 @@ var rPaddle = new Paddle({position: {x:  750}});
 var ball = new Ball();
 
 var bounds = new Polygon({vertices: [
-	new Point(-737.5,  600),
-	new Point( 737.5,  600),
-	new Point( 737.5, -600),
-	new Point(-737.5, -600)]});
+	new Point(-712.5,  600),
+	new Point( 712.5,  600),
+	new Point( 712.5, -600),
+	new Point(-712.5, -600)]});
 
 //White part...
 var outline = new Widget({
