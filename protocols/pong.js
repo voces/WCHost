@@ -1,7 +1,7 @@
 /*{
 	"title": "Pong",
 	"author": "Chakra",
-	"date": "2014-08-08",
+	"date": "2014-08-09",
 	"version": 0,
 	"description": "Pong is one of the first computer games ever created. This simple tennis-like game features two paddles and a ball with the goal to get the ball past the opponent. The first player to 10 goals wins.",
 	"preview": {
@@ -30,7 +30,6 @@ importScripts(
 	url + "r/src/Widget.js",
 	url + "r/src/host.js",
 	url + "r/src/Poll.js",
-	
 	url + "r/src/Point.js",
 	url + "r/src/Segment.js",
 	url + "r/src/Polygon.js"
@@ -164,7 +163,6 @@ function setPlayer(which, account) {
 }
 
 function reflect(normal, context, speedIncrease) {
-	
 	ball.setPosition({position: context.intercept});
 	
 	var speed = ball._slide.speed;
@@ -180,7 +178,11 @@ function reflect(normal, context, speedIncrease) {
 	var nextIntercept = bounds.intercept(new Segment(now, next)),
 		cross = context.timestamp + nextIntercept.uDistance / speed * 1000;
 	
-	if (nextIntercept == false) return;
+	if (nextIntercept == false) {
+		console.log("ERROR?", nextIntercept);
+		return;
+	}
+	
 	var newContext = {
 		timestamp: cross,
 		intercept: nextIntercept,
@@ -189,11 +191,10 @@ function reflect(normal, context, speedIncrease) {
 		cross: cross
 	};
 	
-	if (nextIntercept.x == 712.5 || nextIntercept.x == -712.5)
-		setTimeout(checkScore.bind(newContext), cross - Date.now());
-	else {
-		setTimeout(bounce.bind(newContext), cross - Date.now());
-	}
+	if (Math.abs(nextIntercept.x.toFixed(5)) == 712.5)
+		checkScoreTimeout = setTimeout(checkScore.bind(newContext), cross - Date.now());
+	else
+		bounceTimeout = setTimeout(bounce.bind(newContext), cross - Date.now());
 	
 	ball.slide({
 		timestamp: context.timestamp,
@@ -206,10 +207,13 @@ function twinkle() {
 	if (this.count++ > 3) {
 		this.which.update({mesh: {material: {color: {b: 1, g: 1}}}});
 		ball.setPosition({position: {x: 0, y: 0}});
-		setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
+		
+		if (lScore >= 3) win.call(this, lPlayer);
+		else if (lScore >= 3) win.call(this, lPlayer);
+		else startTimeout = setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
 	} else {
 		this.which.update({mesh: {material: {color: {b: this.count%2, g: this.count%2}}}});
-		setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: this.which, count: this.count}), 300);
+		twinketimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: this.which, count: this.count}), 300);
 	}
 }
 
@@ -223,10 +227,11 @@ function checkScore() {
 		if (Math.abs(rPaddle.position.y - ball.position.y) < 150)
 			reflect(Math.PI, this, true);
 		else {
+			setText("lScore", ++lScore);
 			ball.stopSlide({timestamp: this.timestamp});
 			rPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
 			
-			setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: rPaddle, count: 0}), 300);
+			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: rPaddle, count: 0}), 300);
 		}
 	
 	//lScore
@@ -235,16 +240,48 @@ function checkScore() {
 		if (Math.abs(lPaddle.position.y - ball.position.y) < 150)
 			reflect(Math.PI, this, true);
 		else {
+			setText("rScore", ++rScore);
 			ball.stopSlide({timestamp: this.timestamp});
 			lPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
 			
-			setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: lPaddle, count: 0}), 300);
+			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: lPaddle, count: 0}), 300);
 		}
 	}
 }
 
 function bounce() {
 	reflect(0, this);
+}
+
+function win(winner) {
+	
+	if (waitingPlayers.length == 0) {
+		startTimeout = setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
+		return;
+	}
+	
+	lScore = 0;
+	rScore = 0;
+	setText("lScore", 0);
+	setText("rScore", 0);
+	
+	var toRemove;
+	if (winner == lPlayer) {
+		toRemove = rPlayer;
+		setPlayer("right", waitingPlayers[0])
+	} else {
+		toRemove = lPlayer;
+		setPlayer("left", waitingPlayers[0])
+	}
+	
+	console.log("new waiter " + toRemove);
+	waitingPlayers.push(toRemove);
+	html.push({
+		id: "wPlayer_" + toRemove.replace(/#/g, "&35;"),
+		tag: "div",
+		parent: "queue",
+		text: toRemove
+	});
 }
 
 function start() {
@@ -269,16 +306,29 @@ function start() {
 		cross: cross
 	};
 	
-	if (nextIntercept.x == 712.5 || nextIntercept.x == -712.5)
-		setTimeout(checkScore.bind(newContext), cross - Date.now());
+	if (Math.abs(nextIntercept.x.toFixed(5)) == 712.5)
+		checkScoreTimeout = setTimeout(checkScore.bind(newContext), cross - Date.now());
 	else
-		setTimeout(bounce.bind(newContext), cross - Date.now());
+		bounceTimeout = setTimeout(bounce.bind(newContext), cross - Date.now());
 	
 	ball.slide({timestamp: this.timestamp, direction: angle, position: {x: 0, y: 0}});
 }
 
 function stop(timestamp) {
 	playing = false;
+	
+	clearTimeout(bounceTimeout);
+	clearTimeout(checkScoreTimeout);
+	clearTimeout(twinkleTimeout);
+	clearTimeout(startTimeout);
+	
+	lScore = 0;
+	rScore = 0;
+	setText("lScore", 0);
+	setText("rScore", 0);
+	
+	lPaddle.update({mesh: {material: {color: {b: 1, g: 1}}}});
+	rPaddle.update({mesh: {material: {color: {b: 1, g: 1}}}});
 	
 	ball.stopSlide({timestamp: timestamp});
 	ball.setPosition({position: {x:  0, y: 0}, timestamp: timestamp});
@@ -296,6 +346,11 @@ function sync(poll, winner) {
 	setPlayer("left", winner.data.lPlayer);
 	setPlayer("right", winner.data.rPlayer);
 	
+	lScore = winner.data.lScore;
+	rScore = winner.data.rScore;
+	setText("lScore", lScore);
+	setText("rScore", rScore);
+	
 	var html = [];
 	
 	for (var i = 0; i < waitingPlayers.length; i++)
@@ -311,7 +366,7 @@ function sync(poll, winner) {
 	Math.seedrandom(winner.data.start);
 	
 	var difference = Date.now() - winner.data.start + 3000;
-	setTimeout(start.bind({timestamp: winner.data.start + 3000}), difference);
+	startTimeout = setTimeout(start.bind({timestamp: winner.data.start + 3000}), difference);
 }
 
 /**********************************
@@ -328,6 +383,10 @@ var broadcast = new EventTarget();
 
 var lPlayer = null;
 var rPlayer = null;
+
+var lScore = 0;
+var rScore = 0;
+
 var waitingPlayers = players.slice();
 
 var playing = false;
@@ -335,8 +394,13 @@ var updated = false;
 
 var update = new Poll("update", sync, players.slice(0, players.length - 1));
 
+var bounceTimout;
+var checkScoreTimeout;
+var twinkleTimeout;
+var startTimeout;
+
 /**********************************
-**	Now create some objects
+**	Global objects
 **********************************/
 
 var lPaddle = new Paddle({position: {x: -750}});
@@ -371,10 +435,15 @@ addHTML([
 	{tag: "div", id: "panel", children: [
 		{tag: "div", id: "header", children: [
 			{tag: "span", id: "lPlayer", class: "player", text: "null"}, 
+			{tag: "span", id: "lScore", class: "score", text: 0},
 			{tag: "span", text: " vs. "},
-			{tag: "span", id: "rPlayer", class: "player", text: "null"}]}, 
+			{tag: "span", id: "rPlayer", class: "player", text: "null"},
+			{tag: "span", id: "rScore", class: "score", text: 0}]},
 		{tag: "div", id: "queue"}]},
-	{tag: "style", rules: [{id: "panel", position: "absolute", right: "1em", top: "1em"}]}
+	{tag: "style", rules:
+		[{id: "panel", position: "absolute", right: "1em", top: "1em"},
+		{id: "panel", selector: ".score:before", content: "\" (\""},
+		{id: "panel", selector: ".score:after", content: "\")\""}]}
 ]);
 
 /**********************************
@@ -504,6 +573,8 @@ host.on("onJoin", function(e) {
 		update.start({
 			lPlayer: lPlayer,
 			rPlayer: rPlayer,
+			lScore: lScore,
+			rScore: rScore,
 			waitingPlayers: waitingPlayers,
 			playing: playing,
 			start: e.timestamp
