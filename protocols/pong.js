@@ -142,10 +142,12 @@ Ball.prototype = Object.create(Widget.prototype);
 ***********************************
 **********************************/
 
+//Checks if a specific user is one of our players
 function isPlaying(account) {
 	return account != null && (lPlayer == account || rPlayer == account);
 }
 
+//Updates our local player variable, removes them from waitingPlayers (if applicable), and updates UI
 function setPlayer(which, account) {
 	if (which == "left") {
 		lPlayer = account;
@@ -162,6 +164,11 @@ function setPlayer(which, account) {
 	}
 }
 
+/**********************************
+**	Ball geometry
+**********************************/
+
+//Reflects the ball, which includes actually reflecting it and calculating when it'll hit something again
 function reflect(normal, context, speedIncrease) {
 	ball.setPosition({position: context.intercept});
 	
@@ -203,20 +210,7 @@ function reflect(normal, context, speedIncrease) {
 	});
 }
 
-function twinkle() {
-	if (this.count++ > 3) {
-		this.which.update({mesh: {material: {color: {b: 1, g: 1}}}});
-		ball.setPosition({position: {x: 0, y: 0}});
-		
-		if (lScore >= 3) win.call(this, lPlayer);
-		else if (lScore >= 3) win.call(this, lPlayer);
-		else startTimeout = setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
-	} else {
-		this.which.update({mesh: {material: {color: {b: this.count%2, g: this.count%2}}}});
-		twinketimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: this.which, count: this.count}), 300);
-	}
-}
-
+//Ball hit a side, check if the paddle reflected or if a user scored
 function checkScore() {
 	
 	//rScore
@@ -231,7 +225,7 @@ function checkScore() {
 			ball.stopSlide({timestamp: this.timestamp});
 			rPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
 			
-			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: rPaddle, count: 0}), 300);
+			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: rPaddle, count: 0}), Date.now() - this.timestamp + 300);
 		}
 	
 	//lScore
@@ -244,19 +238,69 @@ function checkScore() {
 			ball.stopSlide({timestamp: this.timestamp});
 			lPaddle.update({mesh: {material: {color: {b: 0, g: 0}}}});
 			
-			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: lPaddle, count: 0}), 300);
+			twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: lPaddle, count: 0}), Date.now() - this.timestamp + 300);
 		}
 	}
 }
 
+//Ball hit a wall, reflect it
 function bounce() {
 	reflect(0, this);
 }
 
-function win(winner) {
+/**********************************
+**	Scoring
+**********************************/
+
+function completeScore(timestamp) {
+	
+	if (partials) {
+		partialUpdate.start({
+			lScore: lScore,
+			rScore: rScore,
+			abort: false,
+			timestamp: timestamp
+		}, false, players.slice(0, players.length));
+	
+		return
+	}
+	
+	//Position everything
+	ball.setPosition({position: {x: 0, y: 0}});
+	lPaddle.setPosition({position: {x: -750, y: 0}, timestamp: timestamp});
+	rPaddle.setPosition({position: {x:  750, y: 0}, timestamp: timestamp});
+	
+	//Call win if someone has won
+	if (lScore >= 3) win(timestamp, lPlayer);
+	else if (rScore >= 3) win(timestamp, rPlayer);
+	
+	//No winners, another round
+	else startTimeout = setTimeout(start.bind({timestamp: timestamp + 3000}), timestamp - Date.now() + 3000);
+}
+
+//Makes a paddle blink a few times then proceeds (either someone has won or we do another round)
+function twinkle() {
+	
+	//If we're done blinking
+	if (this.count++ > 3) {
+		
+		//Fix color
+		this.which.update({mesh: {material: {color: {b: 1, g: 1}}}});
+		
+		completeScore(this.timestamp);
+	
+	//We're not, blink more!
+	} else {
+		this.which.update({mesh: {material: {color: {b: this.count%2, g: this.count%2}}}});
+		twinkleTimeout = setTimeout(twinkle.bind({timestamp: this.timestamp + 300, which: this.which, count: this.count}), Date.now() - this.timestamp + 300);
+	}
+}
+
+//Someone won: if there is no one playing, just continue, otherwise rotate players
+function win(timestamp, winner) {
 	
 	if (waitingPlayers.length == 0) {
-		startTimeout = setTimeout(start.bind({timestamp: this.timestamp + 1000}), 1000);
+		startTimeout = setTimeout(start.bind({timestamp: timestamp + 1000}), timestamp - Date.now() + 1000);
 		return;
 	}
 	
@@ -274,29 +318,27 @@ function win(winner) {
 		setPlayer("left", waitingPlayers[0])
 	}
 	
-	console.log("new waiter " + toRemove);
 	waitingPlayers.push(toRemove);
-	html.push({
+	addHTML({
 		id: "wPlayer_" + toRemove.replace(/#/g, "&35;"),
 		tag: "div",
 		parent: "queue",
 		text: toRemove
 	});
+	
+	startTimeout = setTimeout(start.bind({timestamp: timestamp + 1000}), timestamp - Date.now() + 1000);
 }
 
-function start() {
-	lPaddle.setPosition({position: {x: -750, y: 0}, timestamp: this.timestamp});
-	rPaddle.setPosition({position: {x:  750, y: 0}, timestamp: this.timestamp});
-	
-	playing = true;
-	
-	var angle = Math.random() * Math.random() * (Math.random() * 2 - 1) * Math.PI + (Math.random() > .5 ? 0 : Math.PI);
-	
+/**********************************
+**	Round state
+**********************************/
+
+function ballSlide(timestamp, angle, position) {
 	var now = new Point(0, 0)
 		next = now.polarOffset(2000, angle);
 	
 	var nextIntercept = bounds.intercept(new Segment(now, next)),
-		cross = this.timestamp + nextIntercept.uDistance / ball.speed * 1000;
+		cross = timestamp + nextIntercept.uDistance / ball.speed * 1000;
 	
 	var newContext = {
 		timestamp: cross,
@@ -311,10 +353,34 @@ function start() {
 	else
 		bounceTimeout = setTimeout(bounce.bind(newContext), cross - Date.now());
 	
-	ball.slide({timestamp: this.timestamp, direction: angle, position: {x: 0, y: 0}});
+	ball.slide({timestamp: timestamp, direction: angle, position: position});
 }
 
+//Start a round
+function start() {
+	lPaddle.setPosition({position: {x: -750, y: 0}, timestamp: this.timestamp});
+	rPaddle.setPosition({position: {x:  750, y: 0}, timestamp: this.timestamp});
+	
+	playing = true;
+	
+	ballSlide(this.timestamp, Math.random() * Math.random() * (Math.random() * 2 - 1) * Math.PI + (Math.random() > .5 ? 0 : Math.PI), {x: 0, y: 0});
+}
+
+//Stop a round
 function stop(timestamp) {
+	
+	if (partials) {
+		partialUpdate.start({
+			lPlayer: lPlayer,
+			rPlayer: rPlayer,
+			lScore: lScore,
+			rScore: rScore,
+			waitingPlayers: waitingPlayers,
+			abort: true,
+			timestamp: timestamp
+		}, false, players.slice(0, players.length));
+	} else startTimeout = setTimeout(start.bind({timestamp: timestamp + 1000}), timestamp - Date.now() + 1000);
+	
 	playing = false;
 	
 	clearTimeout(bounceTimeout);
@@ -334,6 +400,28 @@ function stop(timestamp) {
 	ball.setPosition({position: {x:  0, y: 0}, timestamp: timestamp});
 }
 
+function finishSync(poll, winner) {
+	if (!winner) throw "Got a problem here...";
+	
+	partials = false;
+	partial = false;
+	
+	lScore = winner.data.lScore;
+	rScore = winner.data.rScore;
+	setText("lScore", lScore);
+	setText("rScore", rScore);
+	
+	if (winner.data.abort) {
+		waitingPlayers = winner.data.waitingPlayers;
+		setPlayer("left", winner.data.lPlayer);
+		setPlayer("right", winner.data.rPlayer);
+		
+		stop(winner.data.timestamp);
+		startTimeout = setTimeout(start.bind({timestamp: winner.data.timestamp + 3000}), Date.now() - winner.data.timestamp + 3000);
+	} else completeScore(winner.data.timestamp);
+}
+
+//Sync data for everyone
 function sync(poll, winner) {
 	if (!winner) throw "Got a problem here...";
 	
@@ -341,7 +429,6 @@ function sync(poll, winner) {
 	
 	emptyElement("queue");
 	
-	playing = winner.data.playing;
 	waitingPlayers = winner.data.waitingPlayers;
 	setPlayer("left", winner.data.lPlayer);
 	setPlayer("right", winner.data.rPlayer);
@@ -365,8 +452,16 @@ function sync(poll, winner) {
 	
 	Math.seedrandom(winner.data.start);
 	
-	var difference = Date.now() - winner.data.start + 3000;
-	startTimeout = setTimeout(start.bind({timestamp: winner.data.start + 3000}), difference);
+	//If we're not playing, start it
+	if (!winner.data.playing) {
+		var difference = Date.now() - winner.data.start + 3000;
+		startTimeout = setTimeout(start.bind({timestamp: winner.data.start + 3000}), difference);
+	} else {
+		if (!playing) partial = true;
+		partials = true;
+	}
+	
+	playing = winner.data.playing;
 }
 
 /**********************************
@@ -391,10 +486,13 @@ var waitingPlayers = players.slice();
 
 var playing = false;
 var updated = false;
+var partials = false;
+var partial = false;
 
 var update = new Poll("update", sync, players.slice(0, players.length - 1));
+var partialUpdate = new Poll("partial", finishSync, players.slice(0, players.length - 1));
 
-var bounceTimout;
+var bounceTimeout;
 var checkScoreTimeout;
 var twinkleTimeout;
 var startTimeout;
@@ -452,8 +550,20 @@ addHTML([
 
 //This is the only case we know and it means we are the first player in the game
 if (waitingPlayers.length == 1) {
+	
 	setPlayer("left", waitingPlayers.splice(0, 1)[0]);
 	this.updated = true;
+	
+} else if (_initData.start) {
+	
+	setPlayer("left", waitingPlayers.splice(0, 1)[0]);
+	setPlayer("right", waitingPlayers.splice(0, 1)[0]);
+	
+	Math.seedrandom(_initData.timestamp);
+	
+	this.updated = true;
+	startTimeout = setTimeout(start.bind({timestamp: _initData.timestamp + 3000}), Date.now() - _initData.timestamp + 3000);
+	
 } else {
 	var html = [];
 	
