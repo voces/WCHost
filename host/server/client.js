@@ -214,15 +214,15 @@ Client.prototype.joinLobby = function(packet) {
 				this.lobby = lobby;
 				lobby.addClient(this);
 				
-			} else this.send({id: 'onLobbyFail', reason: 'duplicate', data: packet});
-		} else this.send({id: 'onLobbyFail', reason: 'noLobby', data: packet});
-	} else this.send({id: 'onLobbyFail', reason: 'args', data: packet});
+			} else this.send({id: 'onLobbyFail', reasonCode: 46, reason: 'Client already in provided lobby.', data: packet});
+		} else this.send({id: 'onLobbyFail', reasonCode: 47, reason: 'Provided lobby does not exist.', data: packet});
+	} else this.send({id: 'onLobbyFail', reasonCode: 48, reason: 'Lobby not provided.', data: packet});
 	
 };
 
 Client.prototype.leave = function(packet) {
 	if (this.lobby) this.lobby.removeClient(this);
-	else this.send({id: "onLeaveFail", reason: "noLobby", data: packet});
+	else this.send({id: "onLeaveFail", reasonCode: 49, reason: "Client not in a lobby.", data: packet});
 	
 	this.lobby = null;
 };
@@ -253,7 +253,7 @@ Client.prototype.broadcast = function(packet) {
 		this.lobby.send(packet, this);
 		
 	//Else give them a fail
-	} else this.send({id: 'onBroadcastFail', reason: 'lobby', data: packet});
+	} else this.send({id: 'onBroadcastFail', reasonCode: 50, reason: 'Client not in a lobby.', data: packet});
 }
 
 //////////////////////////////////////////////
@@ -279,9 +279,9 @@ Client.prototype.unlist = function(packet) {
 				this.lobby.unlist();
 				this.send({id: 'onUnlist', data: packet});
 				
-			} else this.send({id: 'onUnlistFail', reason: 'block', data: packet});
+			} else this.send({id: 'onUnlistFail', reasonCode: 51, reason: 'Client does not have necessary access to unlist lobby.', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onUnlistFail', reason: 'lobby', data: packet});
+	} else this.send({id: 'onUnlistFail', reasonCode: 52, reason: 'Client not in a lobby.', data: packet});
 }
 
 Client.prototype.relist = function(packet) {
@@ -303,9 +303,9 @@ Client.prototype.relist = function(packet) {
 				this.lobby.relist();
 				this.send({id: 'onRelist', data: packet});
 				
-			} else this.send({id: 'onRelistFail', reason: 'block', data: packet});
+			} else this.send({id: 'onRelistFail', reasonCode: 53, reason: 'Client does not have necessary access to relist lobby.', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onRelistFail', reason: 'lobby', data: packet});
+	} else this.send({id: 'onRelistFail', reasonCode: 54, reason: 'Client not in a lobby.', data: packet});
 };
 
 Client.prototype.unreserve = function(packet) {
@@ -327,9 +327,9 @@ Client.prototype.unreserve = function(packet) {
 				this.lobby.unreserve();
 				this.send({id: 'onUnreserve', data: packet});
 				
-			} else this.send({id: 'onUnreserveFail', reason: 'block', data: packet});
+			} else this.send({id: 'onUnreserveFail', reasonCode: 55, reason: 'Client does not have necessary access to unreserve lobby.', data: packet});
 		}.bind(this));
-	} else this.send({id: 'onUnreserveFail', reason: 'no lobby', data: packet});
+	} else this.send({id: 'onUnreserveFail', reasonCode: 56, reason: 'Client not in a lobby.', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -375,9 +375,9 @@ Client.prototype.setProtocol = function(packet) {
 				}
 			
 			if (i == server.protocols.length)
-				this.send({id: 'onProtocolFail', reason: 'missing protocol', data: packet});
-		} else this.send({id: 'onProtocolFail', reason: 'no access', data: packet});
-	} else this.send({id: 'onProtocolFail', reason: 'no lobby', data: packet});
+				this.send({id: 'onProtocolFail', reasonCode: 57, reason: 'Provided protocol does not exist.', data: packet});
+		} else this.send({id: 'onProtocolFail', reasonCode: 58, reason: 'Client does not have necessary access to set lobby protocol.', data: packet});
+	} else this.send({id: 'onProtocolFail', reasonCode: 59, reason: 'Client is not in a lobby.', data: packet});
 };
 
 Client.prototype._getProtocols = function(packet) {
@@ -475,7 +475,7 @@ Client.prototype.getProtocols = function(packet) {
 				}
 			}.bind(this));
 		} else this._getProtocols(packet);
-	} else this.send({id: 'onGetProtocolsFail', reason: 'no access', data: packet});
+	} else this.send({id: 'onGetProtocolsFail', reasonCode: 60, reason: 'Client does not have necessary access to list protocols.', data: packet});
 };
 
 //////////////////////////////////////////////
@@ -490,7 +490,7 @@ Client.prototype.js = function(packet) {
 		} catch (err) {
 			this.send(err, true);
 		}
-	} else this.send({id:'onJSFail', reason:'Access denied.', data: packet});
+	} else this.send({id:'onJSFail', reasonCode: 61, reason: 'JavaScript mode not enabled.', data: packet});
 }
 
 //////////////////////////////////////////////

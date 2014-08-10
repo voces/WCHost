@@ -234,23 +234,24 @@ Nova.prototype.reserve = function(packet) {
 
 Nova.prototype.bridge = function(packet) {
 	
-	if (this.canConnect(packet.originalAccount, packet.account.toLowerCase(), packet.ip)) {
-		
-		//Set the key
-		//	A string instead of a number because json++ is wonky ATM
-		var key = Math.random().toString().substr(2);
-		
-		var preClient = new PreClient(packet.account, key);
-		
-		this.server.preclients.push(preClient);
-		this.server.preclients[packet.account.toLowerCase()] = preClient;
-		
-		preClient.server = this.server;
-		
-		this.send({id: 'onBridge', account: packet.account, key: key});
-		
-	} else this.send({id: 'bridgeReject', account: packet.account, reason: 'blocked', data: packet});
-	
+	if (typeof packet.account != "string") {
+		if (this.canConnect(packet.originalAccount, packet.account.toLowerCase(), packet.ip)) {
+			
+			//Set the key
+			//	A string instead of a number because json++ is wonky ATM
+			var key = Math.random().toString().substr(2);
+			
+			var preClient = new PreClient(packet.account, key);
+			
+			this.server.preclients.push(preClient);
+			this.server.preclients[packet.account.toLowerCase()] = preClient;
+			
+			preClient.server = this.server;
+			
+			this.send({id: 'onBridge', account: packet.account, key: key});
+			
+		} else this.send({id: 'bridgeReject', account: packet.account, reason: 'Provided account is blocked.', data: packet});
+	} else this.send({id: 'bridgeReject', account: packet.account, reason: 'Account not provided.', data: packet});
 }
 
 Nova.prototype.onOnReserve = function(packet) {
