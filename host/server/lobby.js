@@ -1,3 +1,10 @@
+//***************************************
+//**	Requires
+//***************************************
+
+//Custom libraries
+Sync		= require('./lobby/sync.js');
+
 //////////////////////////////////////////////
 //	Constructor + property set/gets + deconstructor
 //////////////////////////////////////////////
@@ -11,6 +18,8 @@ function Lobby(name, owner) {
 	this.history = [];
 	this.settings = {permissions: {}, ranks: {}};
 	this.protocol = null;
+	
+	this.syncs = [];
 	
 	//destruct in 5 minutes
 	this.timeout = setTimeout(this.destroy.bind(this), 300000);
@@ -113,6 +122,22 @@ Lobby.prototype.unreserve = function(account) {
 //	Lobby communication
 //////////////////////////////////////////////
 
+Lobby.prototype.sync = function(packet, client) {
+	
+	//sync we've never seen before, create it
+	if (typeof this.syncs[packet.sid] == "undefined") {
+		
+		//Create it
+		var sync = new Sync(this, packet.sid);
+		
+		//Push it
+		this.syncs.push(sync);
+		this.syncs[packet.sid] = sync;
+	} else var sync = this.syncs[packet.sid];
+	
+	sync.vote(client, packet.data);
+}
+
 Lobby.prototype.send = function(packet, client) {
 	
 	//Append a lobby name to the packet
@@ -123,7 +148,7 @@ Lobby.prototype.send = function(packet, client) {
 	if (client) packet.account = client.account;
 	else delete packet.account;
 	
-	packet.timestamp = new Date().getTime();
+	packet.timestamp = Date.now();
 	
 	//Loop through clients in lobby
 	for (var x = 0; x < this.clients.length; x++) {

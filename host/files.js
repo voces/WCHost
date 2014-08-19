@@ -10,6 +10,13 @@ FileServer = function(port) {
 	
 	this.server.listen(port);
 	
+	this.server.on("error", function(e) {
+		if (e.code == "EADDRINUSE") error("FileServer port " + port + " taken.")
+		else error("Unkown error opening FileServer on port " + port + ".");
+		
+		process.exit(1);
+	});
+	
 }
 
 FileServer.prototype.onRequest = function(req, res) {

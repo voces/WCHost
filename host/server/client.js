@@ -66,7 +66,8 @@ Client.prototype.receive = function(data) {
 		var packet = JSON.parse(data);
 		
 		//Report it out first
-		//this.log(cc.magenta, packet);
+		if (packet.id != "echo")
+			this.log(cc.magenta, packet);
 		
 	//Incoming object isn't in JSON format
 	} catch (err) {
@@ -109,6 +110,7 @@ Client.prototype.receive = function(data) {
 			//Communication
 			else if (packet.id == "broadcast") this.broadcast(packet);
 			else if (packet.id == "echo") this.echo(packet);
+			else if (packet.id == "sync") this.sync(packet);
 			
 			//Hosting
 			else if (packet.id == "unlist") this.unlist(packet);
@@ -192,7 +194,7 @@ Client.prototype.key = function(packet) {
 		}
 	}
 	
-	if (flag) this.send({id: 'onKeyFail', data: packet});
+	if (flag) this.send({id: 'onKeyFail', reasonCode: 62, reason: "Provided key does not match anything.", data: packet});
 };
 
 //////////////////////////////////////////////
@@ -235,7 +237,7 @@ Client.prototype.echo = function(packet) {
 	
 	//Modify data
 	packet.id = 'onEcho';
-	packet.timestamp = new Date().getTime();
+	packet.timestamp = Date.now();
 	
 	//Send to client
 	this.send(packet);
@@ -256,6 +258,20 @@ Client.prototype.broadcast = function(packet) {
 	} else this.send({id: 'onBroadcastFail', reasonCode: 50, reason: 'Client not in a lobby.', data: packet});
 }
 
+Client.prototype.sync = function(packet) {
+	
+	//If they are in a lobby
+	if (this.lobby) {
+		if (typeof packet.sid != "undefined") {
+			
+			this.send({id: 'onSync', sid: packet.sid, timestamp: Date.now()});
+			this.lobby.sync(packet, this);
+			
+		} else this.send({id: 'onSyncFail', reasonCode: 64, reason: 'Sync id (sid) not provided.', data: packet});
+	} else this.send({id: 'onSyncFail', reasonCode: 63, reason: 'Client not in a lobby.', data: packet});
+	
+}
+
 //////////////////////////////////////////////
 //	Hosting
 //////////////////////////////////////////////
@@ -265,22 +281,14 @@ Client.prototype.unlist = function(packet) {
 	//Make sure they are in a lobby
 	if (this.lobby) {
 		
-		//Find the user's access
-		db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+		//See if they have access to relist
+		if (this.hasAccess("relist")) {
 			
-			//Set access (0 if not found)
-			if (rows.length == 0) var access = 0;
-			else var access = rows[0].access;
+			//They do, so unlist and tell user
+			this.lobby.unlist();
+			this.send({id: 'onUnlist', data: packet});
 			
-			//See if they have enough
-			if (access >= config.commands.host) {
-				
-				//They do, so unlist and tell user
-				this.lobby.unlist();
-				this.send({id: 'onUnlist', data: packet});
-				
-			} else this.send({id: 'onUnlistFail', reasonCode: 51, reason: 'Client does not have necessary access to unlist lobby.', data: packet});
-		}.bind(this));
+		} else this.send({id: 'onUnlistFail', reasonCode: 51, reason: 'Client does not have necessary access to unlist lobby.', data: packet});
 	} else this.send({id: 'onUnlistFail', reasonCode: 52, reason: 'Client not in a lobby.', data: packet});
 }
 
@@ -289,22 +297,14 @@ Client.prototype.relist = function(packet) {
 	//Make sure they are in a lobby
 	if (this.lobby) {
 		
-		//Find the user's access
-		db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+		//See if they have access to relist
+		if (this.hasAccess("relist")) {
 			
-			//Set access (0 if not found)
-			if (rows.length == 0) var access = 0;
-			else var access = rows[0].access;
+			//They do, so relist and tell user
+			this.lobby.relist();
+			this.send({id: 'onRelist', data: packet});
 			
-			//See if they have enough
-			if (access >= config.commands.host) {
-				
-				//They do, so relist and tell user
-				this.lobby.relist();
-				this.send({id: 'onRelist', data: packet});
-				
-			} else this.send({id: 'onRelistFail', reasonCode: 53, reason: 'Client does not have necessary access to relist lobby.', data: packet});
-		}.bind(this));
+		} else this.send({id: 'onRelistFail', reasonCode: 53, reason: 'Client does not have necessary access to relist lobby.', data: packet});
 	} else this.send({id: 'onRelistFail', reasonCode: 54, reason: 'Client not in a lobby.', data: packet});
 };
 
@@ -313,22 +313,14 @@ Client.prototype.unreserve = function(packet) {
 	//Make sure they are in a lobby
 	if (this.lobby) {
 		
-		//Find the user's access
-		db.query("select access from users where name = ?", this.account, function(err, rows, fields) {
+		//See if they have access to unreserve
+		if (this.hasAccess("unreserve")) {
 			
-			//Set access (0 if not found)
-			if (rows.length == 0) var access = 0;
-			else var access = rows[0].access;
+			//They do, so unreserve and tell user
+			this.lobby.unreserve();
+			this.send({id: 'onUnreserve', data: packet});
 			
-			//See if they have enough
-			if (access >= config.commands.host) {
-				
-				//They do, so unreserve and tell user
-				this.lobby.unreserve();
-				this.send({id: 'onUnreserve', data: packet});
-				
-			} else this.send({id: 'onUnreserveFail', reasonCode: 55, reason: 'Client does not have necessary access to unreserve lobby.', data: packet});
-		}.bind(this));
+		} else this.send({id: 'onUnreserveFail', reasonCode: 55, reason: 'Client does not have necessary access to unreserve lobby.', data: packet});
 	} else this.send({id: 'onUnreserveFail', reasonCode: 56, reason: 'Client not in a lobby.', data: packet});
 };
 
@@ -533,7 +525,8 @@ Client.prototype.send = function(data, useUtil) {
 		if (useUtil) var s = util.inspect(data);
 		else var s = JSON.stringify(data);
 		
-		//this.log(cc.green, data);
+		if (data.id != "onEcho")
+			this.log(cc.green, data);
 		
 		//Send via websocket
 		if (this.type == "ws") this.socket.send(s);

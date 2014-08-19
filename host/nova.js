@@ -74,7 +74,11 @@ Nova.prototype.onEcho = function(data) {
 	
 }
 
+//The access and shit here needs to be fixed
+//	The entire access table should probably be pulled and stored locally
+//	An update on individual users occur if the record is older than fifteen minutes
 Nova.prototype.processCommand = function(account, command, args) {
+	
 	if (command == "reserve") {
 		var name = args.join(" ");
 		
@@ -234,7 +238,7 @@ Nova.prototype.reserve = function(packet) {
 
 Nova.prototype.bridge = function(packet) {
 	
-	if (typeof packet.account != "string") {
+	if (typeof packet.account == "string" && typeof packet.originalAccount == "string") {
 		if (this.canConnect(packet.originalAccount, packet.account.toLowerCase(), packet.ip)) {
 			
 			//Set the key
@@ -276,7 +280,7 @@ Nova.prototype.onWhisper = function(packet) {
  **********************************/
 
 Nova.prototype.ping = function(data) {
-	this.pings.push(new Date().getTime() - data.sent);
+	this.pings.push(Date.now() - data.sent);
 	
 	if (this.pings.length > 5) this.pings.shift();
 };
@@ -296,7 +300,7 @@ Nova.prototype.send = function(what) {
 };
 
 Nova.prototype.pingFunc = function() {
-	this.send({id: "echo", sid: "ping", sent: new Date().getTime()});
+	this.send({id: "echo", sid: "ping", sent: Date.now()});
 };
 
 /**********************************
