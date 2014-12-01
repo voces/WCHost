@@ -1,3 +1,10 @@
+//***************************************
+//**	Requires
+//***************************************
+
+//Custom libraries
+ShiftingArray = require('./client/shiftingArray.js');
+
 //////////////////////////////////////////////
 //	Constructor + property set/gets
 //////////////////////////////////////////////
@@ -11,6 +18,8 @@ function Client(socket) {
 	this.lobby = null;
 	this.lobbies = {};
 	this.access = {};
+	
+	this.pings = new ShiftingArray(5);
 	
 	for (var property in config.access.default)
 		if (config.access.default.hasOwnProperty(property))
@@ -122,6 +131,7 @@ Client.prototype.receive = function(data) {
 			else if (packet.id == "getProtocols") this.getProtocols(packet);
 			
 			//Misc
+			else if (packet.id == "onPing") this.onPing(packet);
 			else if (packet.id == "js") this.js(packet.data);
 			
 			//Packet id not matched
@@ -474,6 +484,12 @@ Client.prototype.getProtocols = function(packet) {
 //	Misc
 //////////////////////////////////////////////
 
+Client.prototype.onPing = function(packet) {
+	
+	this.pings.push(Date.now() - packet.time);
+	
+};
+
 Client.prototype.js = function(packet) {
 	
 	if (this.mode == "js") {
@@ -483,7 +499,7 @@ Client.prototype.js = function(packet) {
 			this.send(err, true);
 		}
 	} else this.send({id:'onJSFail', reasonCode: 61, reason: 'JavaScript mode not enabled.', data: packet});
-}
+};
 
 //////////////////////////////////////////////
 //	Secondary Support Functions

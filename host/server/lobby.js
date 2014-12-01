@@ -181,5 +181,21 @@ Lobby.prototype.log = function() {
 	console.log.apply(this, args);
 };
 
+//////////////////////////////////////////////
+//	Misc
+//////////////////////////////////////////////
+
+Lobby.prototype.pingMean = function() {
+	var pings = new ShiftingArray(this.clients.length);
+	
+	for (var i = 0; i < this.clients.length; i++) {
+		if (this.clients[i].pings.length > 0)
+			pings.push(this.clients[i].pings.geometricMean());
+	}
+	
+	if (pings.length > 0) return pings.geometricMean();
+	else return null;
+};
+
 //Expose Lobby class
 module.exports = Lobby;

@@ -27,6 +27,9 @@ Server = function(port) {
 	//Bind connections
 	this.wss.on('connection', this.onWS.bind(this))
 	
+	//Set up our pinger loop
+	this.pinger = new setInterval(this.pingFunc.bind(this), 1000);
+	
 	//Finished
 	this.log('Server started');
 };
@@ -85,6 +88,23 @@ Server.prototype.newLobby = function(name, owner) {
 	//Lobby already exists, return lobby
 	} else return false;
 	
+};
+
+Server.prototype.pingFunc = function() {
+	
+	var now = Date.now();
+	var lobbyPing;
+	
+	for (var i = 0; i < this.lobbies.length; i++) {
+		if (this.lobbies[i].clients.length > 0) {
+			
+			lobbyPing = this.lobbies[i].pingMean();
+			
+			for (var n = 0; n < this.lobbies[i].clients.length; n++)
+				this.lobbies[i].clients[n].send({id: "ping", time: now, mean: lobbyPing});
+		}
+	}
+
 };
 
 Server.prototype.log = function() {

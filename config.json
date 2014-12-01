@@ -6,7 +6,7 @@
 		"database": "webcraft_host"
 	},
 	"nova": {
-		"ip": "68.229.21.36",
+		"ip": "68.108.171.67",
 		"port": 8082,
 		"user": "anon",
 		"password": ""
