@@ -92,7 +92,7 @@ Server.prototype.newLobby = function(name, owner) {
 
 Server.prototype.pingFunc = function() {
 	
-	var now = Date.now();
+	//var now = Date.now();
 	var lobbyPing;
 	
 	for (var i = 0; i < this.lobbies.length; i++) {
@@ -101,7 +101,7 @@ Server.prototype.pingFunc = function() {
 			lobbyPing = this.lobbies[i].pingMean();
 			
 			for (var n = 0; n < this.lobbies[i].clients.length; n++)
-				this.lobbies[i].clients[n].send({id: "ping", time: now, mean: lobbyPing});
+				this.lobbies[i].clients[n].send({id: "ping", time: Date.now(), ping: this.lobbies[i].clients[n].ping, pingMean: lobbyPing});
 		}
 	}
 

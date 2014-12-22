@@ -21,6 +21,9 @@ function Lobby(name, owner) {
 	
 	this.syncs = [];
 	
+	this.lastPing = null;
+	this.recalcPing = false;
+	
 	//destruct in 5 minutes
 	this.timeout = setTimeout(this.destroy.bind(this), 300000);
 	
@@ -186,15 +189,22 @@ Lobby.prototype.log = function() {
 //////////////////////////////////////////////
 
 Lobby.prototype.pingMean = function() {
-	var pings = new ShiftingArray(this.clients.length);
 	
-	for (var i = 0; i < this.clients.length; i++) {
-		if (this.clients[i].pings.length > 0)
-			pings.push(this.clients[i].pings.geometricMean());
-	}
+	if (!this.recalcPing) return this.lastPing;
 	
-	if (pings.length > 0) return pings.geometricMean();
-	else return null;
+	var pingSum = 0,
+		pingCount = 0;
+	
+	for (var i = 0; i < this.clients.length; i++)
+		if (this.clients[i].ping != null) {
+			pingSum +=  this.clients[i].ping;
+			pingCount++;
+		}
+	
+	if (pingSum != 0) {
+		return pingSum/pingCount;
+		
+	} else return null;
 };
 
 //Expose Lobby class

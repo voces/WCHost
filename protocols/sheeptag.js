@@ -26,11 +26,13 @@ importScripts(
 	url + "r/src/EventTarget.js",
 	url + "r/src/local.js",
 	url + "r/src/Widget.js",
+	url + "r/src/Unit.js",
 	url + "r/src/host.js",
 	url + "r/src/Poll.js",
 	url + "r/src/Point.js",
 	url + "r/src/Segment.js",
 	url + "r/src/Polygon.js",
+	url + "r/src/TileMap.js",
 	
 	url + "r/src/Player.js",
 	url + "r/src/PlayerGroup.js",
@@ -68,44 +70,13 @@ addEventListener('message', function(e) {
 ***********************************
 **********************************/
 
-function Paddle(props) {
-	Widget.apply(this, [props, true])
-	
-	if (props.rotated == true) {
-		this.model.geometry.size = {
-			height:	 25,
-			width:	250,
-			depth:	 20};
-		
-		this.boundingBox = {
-			max: {x:  875, y:  1000},
-			min: {x: -875, y: -1000}};
-		
-	} else {
-		this.model.geometry.size = {
-			height:	250,
-			width:	 25,
-			depth:	 20};
-		
-		this.boundingBox = {
-			max: {x:  1000, y:  875},
-			min: {x: -1000, y: -875}};
-	}
-	
-	this.speed = 700;
+function Sheep() {
+	Unit.apply(this, [props]);
 	
 	applyProperties(this, props);
-	
-	postMessage({
-		_func: "createWidget", 
-		tempID: this.tempID,
-		position: this.position,
-		offset: this.offset,
-		boundingBox: this.boundingBox,
-		model: this.model});
 }
 
-Paddle.prototype = Object.create(Widget.prototype);
+Sheep.prototype = Object.create(Unit.prototype);
 
 /**********************************
 ***********************************
@@ -118,31 +89,6 @@ function secondSync(poll, winner) {
 
 function firstSync(poll, winner) {
 	
-	//Adopt teams if we know nothing or if we aren't playing, in which case the winner was updated player info
-	if (state.updated == 0 || !winner.data.playing) {
-		players = new PlayerGroup();
-		waitingPlayers = new PlayerGroup();
-		
-		for (var i = 0; i < winner.data.players.length; i++) {
-			players.add(Player.all[winner.data.players[i]]);
-			players[i].paddle = paddles[i];	}
-		
-		for (var i = 0; i < winner.data.waitingPlayers.length; i++)
-			waitingPlayers.add(Player.all[winner.data.waitingPlayers[i]]);
-	}
-	
-	//Set playing state
-	state.playing = winner.data.playing;
-	
-	//Flag we need a secondSync if playing
-	if (state.playing) state.updated = 1;
-	
-	//Start it if we weren't playing
-	else {
-		state.updated = 2;
-		Math.seedrandom(winner.data.seed);
-		startTimeout = setTimeout(start.bind({timestamp: winner.data.timestamp + 5000}), winner.data.timestamp - Date.now() + 5000);
-	}
 }
 
 /**********************************
@@ -189,11 +135,6 @@ for (var i = 0; i < _initData.players.length; i++)
 
 //Only one person in the game, which means we are a player, but don't start the game...
 if (waitingPlayers.length == 1) {
-	
-	var length = players.add(waitingPlayers.splice(0, 1)[0]);
-	players[length - 1].paddle = paddles[length - 1];
-	
-	delete length;
 	
 	state.updated = 2;
 	

@@ -1,10 +1,3 @@
-//***************************************
-//**	Requires
-//***************************************
-
-//Custom libraries
-ShiftingArray = require('./client/shiftingArray.js');
-
 //////////////////////////////////////////////
 //	Constructor + property set/gets
 //////////////////////////////////////////////
@@ -19,7 +12,7 @@ function Client(socket) {
 	this.lobbies = {};
 	this.access = {};
 	
-	this.pings = new ShiftingArray(5);
+	this.ping;
 	
 	for (var property in config.access.default)
 		if (config.access.default.hasOwnProperty(property))
@@ -75,7 +68,7 @@ Client.prototype.receive = function(data) {
 		var packet = JSON.parse(data);
 		
 		//Report it out first
-		if (packet.id != "echo")
+		if (packet.id != "onPing")
 			this.log(cc.magenta, packet);
 		
 	//Incoming object isn't in JSON format
@@ -486,7 +479,15 @@ Client.prototype.getProtocols = function(packet) {
 
 Client.prototype.onPing = function(packet) {
 	
-	this.pings.push(Date.now() - packet.time);
+	//Quit if they modified the timestamp... (note we could just keep a table of time and send out ids, but eh)
+	if (isNaN(parseFloat(packet.time)) || !isFinite(packet.time)) return;
+	
+	this.lobby.recalcPing = true;
+	
+	if (this.ping == null)
+		this.ping = Date.now() - packet.time;
+	else
+		this.ping = 4/5*(this.ping) + 1/5*(Date.now() - packet.time);
 	
 };
 
@@ -541,7 +542,7 @@ Client.prototype.send = function(data, useUtil) {
 		if (useUtil) var s = util.inspect(data);
 		else var s = JSON.stringify(data);
 		
-		if (data.id != "onEcho")
+		if (data.id != "ping")
 			this.log(cc.green, data);
 		
 		//Send via websocket
