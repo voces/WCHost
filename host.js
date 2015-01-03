@@ -176,7 +176,7 @@ fs.readFile(rootdir + '/config.json', 'utf8', function (err, data) {
 	}
 	
 	server = new Server(config.server.port);
-	nova = new Nova(config.server.port, config.nova.ip, config.nova.port, config.nova.user, config.nova.password);
+	nova = new Nova(config.server.port, config.nova.address, config.nova.user, config.nova.password);
 	files = new FileServer(config.fileserver.port);
 	
 	server.nova = nova;

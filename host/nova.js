@@ -3,7 +3,7 @@
  **	Nova Class
  **********************************/
 
-Nova = function(serverPort, ip, port, user, password) {
+Nova = function(serverPort, address, user, password) {
 	
 	//Default IP and port should be updated to match vox's IP/port
 	if (typeof ip == "undefined") ip = "68.229.21.36";
@@ -17,8 +17,8 @@ Nova = function(serverPort, ip, port, user, password) {
 	this.serverPort = serverPort;
 	
 	//Connect to Nova
-	this.log('Attempting to connect to Nova @ ws://' + ip + ':' + port)
-	this.ws = new WebSocket('ws://' + ip + ':' + port);
+	this.log('Attempting to connect to Nova @ ' + address)
+	this.ws = new WebSocket(address);
 	
 	//Attach event handles
 	this.ws.on('open', this.onOpen.bind(this));
