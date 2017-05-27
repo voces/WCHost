@@ -1,0 +1,20 @@
+{
+  "name": "wc-host",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "verit",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^3.19.0",
+    "eslint-config-mdcs": "^4.2.2"
+  },
+  "dependencies": {
+    "dateformat": "^2.0.0",
+    "mime-types": "^2.1.15",
+    "mysql2": "^1.2.0",
+    "ws": "^3.0.0"
+  }
+}
