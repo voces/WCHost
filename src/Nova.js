@@ -32,13 +32,15 @@ class Nova {
 
 	connect() {
 
+		if ( this.ws && typeof this.ws.close === "function" ) this.ws.close();
+
 		this.log( "Attempting to connect to Nova @ " + this.address );
 		this.ws = new WebSocket( this.address );
 
 		this.ws.on( "open", () => this.onOpen() );
 		this.ws.on( "message", data => this.onMessage( data ) );
 		this.ws.on( "close", () => this.onClose() );
-		this.ws.on( "error", () => this.onError() );
+		this.ws.on( "error", err => this.onError( err ) );
 
 	}
 
@@ -53,7 +55,7 @@ class Nova {
 		switch ( data.id ) {
 
 			// Self
-			case "onLoin": return this.onLogin( data );
+			case "onLogin": return this.onLogin( data );
 			case "onUpgrade": return this.onUpgrade();
 
 			// Hosting
@@ -69,7 +71,7 @@ class Nova {
 			case "onWhisperEcho": return;
 			case "onEcho": return this.onEcho( data );
 
-			default: this.error( "Unhandled Nova message", data );
+			default: this.error( "Unhandled Nova message", data.id );
 
 		}
 
@@ -86,18 +88,23 @@ class Nova {
 
 	onClose( ignorePrint ) {
 
-		if ( ignorePrint !== true ) this.error( "Disconnected from Nova" );
+		if ( ignorePrint !== true ) this.error( "Disconnected from Nova. Trying again." );
 
-		this.connect();
+		setTimeout( () => this.connect(), 5000 );
 
 	}
 
 	onError( err ) {
 
-		if ( err.code === "ETIMEDOUT" ) {
+		switch ( err.code ) {
 
-			this.error( "Timed out while trying to connect to Nova." );
-			this.onClose( true );
+			case "ETIMEDOUT":
+				this.error( "Timed out while trying to connect to Nova. Trying again." );
+				return this.onClose( true );
+
+			case "ECONNREFUSED":
+				this.error( "Unable to connect to Nova. You may have the incorrect address. Trying again." );
+				return this.onClose( true );
 
 		}
 

@@ -9,7 +9,7 @@ module.exports = {
 		database: "webcraft_host"
 	},
 	nova: {
-		address: "wss://notextures.io:8082",
+		address: "wss://notextures.io:8080",
 		user: "anon",
 		password: ""
 	},
