@@ -29,16 +29,20 @@ class Server {
 		this.lobbies.key = "lowerName";
 
 		this.protocols = new Collection();
-		this.clients.key = "lowerPath";
+		this.protocols.key = "lowerPath";
 
 		this.nova = nova;
+
+		this.port = config.port || 8081;
+
+		config = Object.assign( { port: 8081 }, config );
 
 		this.wss = new WebSocket.Server( config );
 		this.wss.on( "connection", socket => this.clients.add( new Client( socket, this ) ) );
 
 		// this.pinger = new setInterval( this.pingFunc.bind( this ), 1000 );
 
-		this.log( "Server started" );
+		this.log( "Server started on port", config.port );
 
 	}
 

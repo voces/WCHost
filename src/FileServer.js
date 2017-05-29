@@ -13,7 +13,7 @@ class FileServer {
 		this.port = config.port;
 		this.root = config.path;
 
-		this.server = http.createServer( ( req, res ) => this.onRequst( req, res ) );
+		this.server = http.createServer( ( req, res ) => this.onRequest( req, res ) );
 
 		this.server.listen( this.port );
 

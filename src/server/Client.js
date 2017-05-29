@@ -15,6 +15,9 @@ class Client {
 		this.server = server;
 		this.socket = socket;
 
+		this.remoteAddress = socket._socket.remoteAddress;
+		this.remotePort = socket._socket.remotePort;
+
 		this.account = undefined;
 		this.mode = "normal";
 		this.lobby = undefined;
@@ -25,6 +28,8 @@ class Client {
 		this.socket.on( "error", data => this.error( data ) );
 
 		this.storedAddress = this.address();
+
+		this.type = "ws";
 
 		this.log( "Connected" );
 
@@ -125,7 +130,9 @@ class Client {
 
 		// Remove from preclients
 		if ( preclient.timeout ) clearTimeout( preclient.timeout );
-		this.server.preclients.remove( preclient );
+		preclient.fullfilled();
+
+		this.log( "Client authenticated" );
 
 		// Update clients
 		this.server.clients.map[ this.lowerAccount ] = this;
@@ -135,8 +142,6 @@ class Client {
 		if ( user ) UTIL.merge( this.access, JSON.parse( user.access ) );
 
 		this.send( { id: "onKey", account: this.account, access: this.access } );
-
-		this.log( "Client authenticated" );
 
 	}
 
@@ -415,9 +420,9 @@ class Client {
 	address( arr ) {
 
 		//Set up our address array
-		let address;
-		if ( this.type === "ws" ) address = [ this.socket._socket.remoteAddress, this.socket._socket.remotePort ];
-		else if ( this.type === "s" ) address = [ this.socket.remoteAddress, this.socket.remotePort ];
+		const address = this.type === "ws" ?
+			[ this.remoteAddress, this.remotePort ] :
+			[ this.remoteAddress, this.remotePort ];
 
 		//Return value
 		if ( arr === true ) return address;
@@ -431,13 +436,13 @@ class Client {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bblue, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bblue, this.account || this.address(), ...args, UTIL.colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.blue, ...args, UTIL.colors.default );
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.blue, this.account || this.address(), ...args, UTIL.colors.default );
 
 	}
 

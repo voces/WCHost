@@ -1,4 +1,6 @@
 
+const VM = require( "vm" );
+
 const Collection = require( "../Collection" );
 
 class Lobby {
@@ -16,9 +18,25 @@ class Lobby {
 		this.clients = new Collection();
 		this.clients.key = "lowerAccount";
 
+		this.vm = new VM();
+
 		this.log( "Reserved lobby" );
 
 		this.timeout = setTimeout( () => this.destroy(), 300000 );
+
+	}
+
+	get protocol() {
+
+		return this._protocol;
+
+	}
+
+	set protocol( value ) {
+
+		this._protocol = value;
+
+		this.vm.run( value.script );
 
 	}
 

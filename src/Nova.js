@@ -7,6 +7,11 @@ const Preclient = require( "./server/Preclient" );
 const Lobby = require( "./server/Lobby" );
 const UTIL = require( "./util" );
 
+const WEBSOCKET_ERRORS = {
+	ETIMEDOUT: "Timed out while trying to connect to Nova.",
+	ECONNREFUSED: "Unable to connect to Nova. You may have the incorrect address."
+};
+
 class Nova {
 
 	constructor( host, config = {} ) {
@@ -31,8 +36,6 @@ class Nova {
 	}
 
 	connect() {
-
-		if ( this.ws && typeof this.ws.close === "function" ) this.ws.close();
 
 		this.log( "Attempting to connect to Nova @ " + this.address );
 		this.ws = new WebSocket( this.address );
@@ -86,9 +89,7 @@ class Nova {
 
 	}
 
-	onClose( ignorePrint ) {
-
-		if ( ignorePrint !== true ) this.error( "Disconnected from Nova. Trying again." );
+	onClose() {
 
 		setTimeout( () => this.connect(), 5000 );
 
@@ -96,19 +97,10 @@ class Nova {
 
 	onError( err ) {
 
-		switch ( err.code ) {
+		const errorMessage = WEBSOCKET_ERRORS[ err.code ];
 
-			case "ETIMEDOUT":
-				this.error( "Timed out while trying to connect to Nova. Trying again." );
-				return this.onClose( true );
-
-			case "ECONNREFUSED":
-				this.error( "Unable to connect to Nova. You may have the incorrect address. Trying again." );
-				return this.onClose( true );
-
-		}
-
-		this.error( "Unhandled Nova error", err );
+		if ( errorMessage ) this.error( errorMessage );
+		else this.error( "Unhandled Nova error", err );
 
 	}
 
@@ -125,7 +117,7 @@ class Nova {
 
 		//Upgrade client type
 		this.log( "Upgrading to host" );
-		this.send( { id: "upgrade", port: this.serverPort } );
+		this.send( { id: "upgrade", port: this.server.port } );
 
 	}
 

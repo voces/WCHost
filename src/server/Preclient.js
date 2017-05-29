@@ -28,15 +28,23 @@ class Preclient {
 
 	}
 
+	fullfilled() {
+
+		this.log( "Fullfilled" );
+
+		this.server.preclients.remove( this );
+
+	}
+
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.byellow, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.byellow, this.account || this.address(), ...args, UTIL.colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.yellow, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.yellow, this.account || this.address(), ...args, UTIL.colors.default );
 
 	}
 
