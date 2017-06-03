@@ -71,13 +71,14 @@ class UTIL {
 }
 
 UTIL.readdir = UTIL.promisify( fs.readdir );
+UTIL.readFile = UTIL.promisify( fs.readFile );
 
 UTIL.colors = {
 	red: "\x1b[0;31m",
-	green: "\x1b[0;32m",	// send
-	yellow: "\x1b[0;33m",
+	green: "\x1b[0;32m",
+	yellow: "\x1b[0;33m", // Preclient
 	blue: "\x1b[0;34m",	// Client
-	magenta: "\x1b[0;35m",	// receive
+	magenta: "\x1b[0;35m",
 	cyan: "\x1b[0;36m",	// Server
 	white: "\x1b[0;37m",
 	black: "\x1b[0;30m",

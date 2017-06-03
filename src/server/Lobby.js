@@ -1,7 +1,11 @@
 
-const VM = require( "vm" );
+const cp = require( "child_process" );
+
+// const { VM } = require( "vm2" );
+const dateformat = require( "dateformat" );
 
 const Collection = require( "../Collection" );
+const UTIL = require( "../util" );
 
 class Lobby {
 
@@ -18,9 +22,10 @@ class Lobby {
 		this.clients = new Collection();
 		this.clients.key = "lowerAccount";
 
-		this.vm = new VM();
+		this.sandbox = cp.fork( "src/server/lobby/sandbox" );
+		this.sandbox.on( "message", msg => this.sandboxReceive( msg ) );
 
-		this.log( "Reserved lobby" );
+		this.log( "Reserved lobby for", owner );
 
 		this.timeout = setTimeout( () => this.destroy(), 300000 );
 
@@ -36,7 +41,21 @@ class Lobby {
 
 		this._protocol = value;
 
-		this.vm.run( value.script );
+		this.log( "Protocol set to", value.path );
+
+		this.nova.send( {
+			id: "update",
+			name: this.name,
+			protocol: this.protocol.name,
+			date: this.protocol.date,
+			version: this.protocol.version,
+			preview: this.protocol.preview,
+			author: this.protocol.authorw
+		} );
+
+		this.send( { id: "onProtocol", protocol: value } );
+
+		this.sandboxProtocol( value.script );
 
 	}
 
@@ -44,12 +63,10 @@ class Lobby {
 
 		this.nova.send( { id: "unreserve", name: this.name } );
 
-		for ( let i = 0; i < this.clients.length; i ++ ) {
+		this.sandboxSend( { id: "destroy" } );
 
-			this.send( { id: "onLeave", lobby: this.name, forced: true }, this.clients[ i ] );
+		for ( let i = 0; i < this.clients.length; i ++ )
 			this.removeClient( this.clients[ i ], true );
-
-		}
 
 		this.server.lobbies.remove( this );
 
@@ -65,18 +82,18 @@ class Lobby {
 
 		clearTimeout( this.timeout );
 
-		this.send( { id: "onJoin", lobby: this.name, accounts: [ client.account ] } );
+		this.sandboxSend( { id: "onJoin", accounts: [ client.account ] } );
 
-		this.clients.push( client );
+		this.clients.add( client );
 
-		client.send( {
-			id: "onJoin",
-			lobby: this.name,
-			accounts: this.clients.map( client => client.account ),
-			protocol: this.protocol,
-			owner: this.ownerAccount,
-			isOwner: ( this.ownerAccount.toLowerCase() === client.lowerAccount )
-		} );
+		// client.send( {
+		// 	id: "onJoin",
+		// 	lobby: this.name,
+		// 	// accounts: this.clients.map( client => client.account ),
+		// 	protocol: this.protocol
+		// 	// owner: this.ownerAccount,
+		// 	// isOwner: ( this.ownerAccount.toLowerCase() === client.lowerAccount )
+		// } );
 
 	}
 
@@ -91,7 +108,7 @@ class Lobby {
 		} else this.log( "Removed user from lobby" );
 
 		if ( silent !== true )
-			this.send( { id: "onLeave", lobby: this.name }, client );
+			this.sandboxSend( { id: "onLeave", accounts: [ client.account ] } );
 
 		this.clients.remove( client );
 		client.lobby = null;
@@ -124,19 +141,59 @@ class Lobby {
 	//	Primary support
 	//////////////////////////////////////////////
 
-	send( packet, client ) {
+	sandboxSend( data ) {
+
+		this.sandbox.send( { id: "send", data } );
+
+	}
+
+	sandboxProtocol( data ) {
+
+		this.sandbox.send( { id: "protocol", data } );
+
+	}
+
+	sandboxReceive( data ) {
+
+		switch ( data.id ) {
+
+			case "destroy": return this.destroy();
+			case "removeClient": return this.removeClient( this.clients.dict[ data.client.toLowerCase() ] );
+			case "unlist": return this.unlist();
+			case "relist": return this.relist();
+			case "unreserve": return this.unreserve();
+			case "protocol": return this.protocol = this.server.protocols.dict[ data.path.toLowerCase() ];
+			case "broadcast": return this.send( data );
+			default: this.error( "Unknown message from sandbox", data );
+
+		}
+
+	}
+
+	send( packet ) {
+
+		if ( typeof packet !== "object" ) packet = { id: "broadcast", data: packet };
+		else packet.id = "broadcast";
 
 		packet.lobby = this.name;
-
-		if ( client ) packet.account = client.account;
-		else delete packet.account;
-
 		packet.timestamp = Date.now();
 
-		const data = JSON.stringify( data );
+		const data = JSON.stringify( packet );
 
 		for ( let i = 0; i < this.clients.length; i ++ )
-			this.clients[ i ].send( packet );
+			this.clients[ i ].send( data );
+
+	}
+
+	error( ...args ) {
+
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.magenta, this.name, ...args, UTIL.colors.default );
+
+	}
+
+	log( ...args ) {
+
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bmagenta, this.name, ...args, UTIL.colors.default );
 
 	}
 

@@ -6,16 +6,26 @@ class Collection extends Array {
 		super( ...args );
 
 		this.key = Collection.defaultKey;
-		this.map = {};
+		this.dict = {};
 
 	}
 
-	add( item ) {
+	add( ...items ) {
 
-		this.push( item );
+		this.push( ...items );
 
-		if ( item[ this.key ] )
-			this.map[ item[ this.key ] ] = item;
+		for ( let i = 0; i < items.length; i ++ )
+			if ( items[ i ][ this.key ] )
+				this.dict[ items[ i ][ this.key ] ] = items[ i ];
+
+	}
+
+	replace( arr ) {
+
+		this.splice( 0 );
+		this.dict = {};
+
+		this.add( ...arr );
 
 	}
 
@@ -25,8 +35,8 @@ class Collection extends Array {
 		if ( index ) this.splice( index, 1 );
 
 		//Is the second condition required? How does it effect speed?
-		if ( item[ this.key ] && this.map[ item[ this.key ] ] )
-			delete this.map[ item[ this.key ] ];
+		if ( item[ this.key ] && this.dict[ item[ this.key ] ] )
+			delete this.dict[ item[ this.key ] ];
 
 	}
 

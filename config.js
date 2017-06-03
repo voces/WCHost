@@ -18,7 +18,7 @@ module.exports = {
 	},
 	fileServer: {
 		port: 8087,
-		path: path.join( require.main.filename, "protocols" )
+		path: path.join( __dirname, "protocols" )
 	},
 	access: {
 		default: {

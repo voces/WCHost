@@ -56,7 +56,7 @@ class Client {
 
 		}
 
-		this.log( UTIL.colors.bmagenta, packet );
+		this.log( "[RECV]", packet );
 
 			//Packets come in as two categories (online and offline)
 		if ( ! this.account ) {
@@ -117,7 +117,7 @@ class Client {
 
 	async key( packet ) {
 
-		const preclient = this.server.preclients.map[ packet.key ];
+		const preclient = this.server.preclients.dict[ packet.key ];
 
 		if ( ! preclient )
 			return this.send( { id: "onKeyFail", reasonCode: 62, reason: "Provided key does not match anything.", data: packet } );
@@ -135,7 +135,7 @@ class Client {
 		this.log( "Client authenticated" );
 
 		// Update clients
-		this.server.clients.map[ this.lowerAccount ] = this;
+		this.server.clients.dict[ this.lowerAccount ] = this;
 
 		const user = ( await db.query( "SELECT access FROM users WHERE name = ?;", [ this.account ] ) )[ 0 ];
 
@@ -154,7 +154,7 @@ class Client {
 		if ( typeof packet.name !== "string" )
 			return this.send( { id: "onLobbyFail", reasonCode: 48, reason: "Lobby not provided.", data: packet } );
 
-		const lobby = this.server.lobbies[ packet.name.toLowerCase() ];
+		const lobby = this.server.lobbies.dict[ packet.name.toLowerCase() ];
 
 		if ( ! lobby )
 			return this.send( { id: "onLobbyFail", reasonCode: 47, reason: "Provided lobby does not exist.", data: packet } );
@@ -164,6 +164,8 @@ class Client {
 
 		this.lobby = lobby;
 		lobby.addClient( this );
+
+		this.send( { id: "onLobby", lobby: lobby.name, protocol: lobby.protocol } );
 
 	}
 
@@ -194,14 +196,18 @@ class Client {
 
 	broadcast( packet ) {
 
-		if ( ! this.lobby )
+		if ( ! this.lobby ) {
+
+			this.log( "no lobby" );
 			return this.send( { id: "onBroadcastFail", reasonCode: 50, reason: "Client is not in a lobby.", data: packet } );
+
+		}
 
 		//Modify data
 		packet.id = "onBroadcast";
 
 		//Broadcast to lobby
-		this.lobby.send( packet, this );
+		this.lobby.sandboxSend( packet );
 
 	}
 
@@ -265,9 +271,10 @@ class Client {
 	//	Commands
 	//////////////////////////////////////////////
 
-	hasAccess( what ) {
+	hasAccess( /*what*/ ) {
 
-		return this.access[ what ] || ( this.lobby && this.lobbyowner === this.account && config.access.owner[ what ] );
+		// return this.access[ what ] || ( this.lobby && this.lobbyowner === this.account && config.access.owner[ what ] );
+		return true;
 
 	}
 
@@ -276,27 +283,19 @@ class Client {
 		if ( ! this.lobby )
 			return this.send( { id: "onProtocolFail", reasonCode: 59, reason: "Client is not in a lobby.", data: packet } );
 
+		if ( ! packet.path )
+			return this.send( { id: "onProtocolFail", reasonCode: 69, reason: "Protocol path not provided.", data: packet } );
+
 		if ( ! this.hasAccess( "protocol" ) )
 			return this.send( { id: "onProtocolFail", reasonCode: 58, reason: "Client does not have necessary access to set lobby protocol.", data: packet } );
 
-		const protocol = this.server.protocols.map[ protocol.path.toLowerCase() ];
+		const protocol = this.server.protocols.dict[ packet.path.toLowerCase() ];
 
 		if ( ! protocol )
 			return this.send( { id: "onProtocolFail", reasonCode: 57, reason: "Provided protocol does not exist.", data: packet } );
 
 		this.lobby.path = packet.path;
 		this.lobby.protocol = protocol;
-
-		this.nova.send( {
-			id: "update",
-			name: this.lobby.name,
-			protocol: this.lobby.protocol.title,
-			date: this.lobby.protocol.date,
-			version: this.lobby.protocol.version,
-			preview: this.lobby.protocol.preview
-		} );
-
-		this.lobby.send( { id: "onProtocol", protocol: this.lobby.protocol } );
 
 	}
 
@@ -310,7 +309,7 @@ class Client {
 
 			response.subset = false;
 
-			response.protocols = this.server.protocols.slice( packet.offset, 100 );
+			response.protocols = this.server.protocols.slice( packet.offset, 100 ).map( p => Object.assign( {}, p, { script: undefined } ) );
 
 			if ( this.server.protocols.length <= packet.offset + 100 )
 				response.complete = true;
@@ -326,7 +325,7 @@ class Client {
 
 				if ( regex.test( this.server.protocols[ i ].toLowerCase() ) ) {
 
-					if ( ! packet.offset ) response.protocols.push( this.server.protocols[ i ] );
+					if ( ! packet.offset ) response.protocols.push( Object.assign( {}, this.server.protocols[ i ], { script: undefined } ) );
 					else -- packet.offset;
 
 				}
@@ -347,15 +346,14 @@ class Client {
 		if ( ! this.hasAccess( "protocol" ) )
 			return this.send( { id: "onGetProtocolsFail", reasonCode: 60, reason: "Client does not have necessary access to list protocols.", data: packet } );
 
-		if ( this.server.protocols.length || ! packet.force )
+		if ( this.server.protocols.length && ! packet.force )
 			return this._getProtocols( packet );
 
-		this.server.protocols.splice( 0, this.server.protocols.length,
-			await Promise.all( ( await UTIL.readdir( config.fileServer.path ) )
+		await this.server.protocols.replace( await Promise.all( ( await UTIL.readdir( config.fileServer.path ) )
 				.filter( filepath => path.extname( filepath ) === ".js" )
 				.map( async filepath => {
 
-					const file = await UTIL.readFile( path.join( config.fileServer.path, filepath ) );
+					const file = ( await UTIL.readFile( path.join( config.fileServer.path, filepath ) ) ).toString();
 
 					let protocol;
 
@@ -370,7 +368,7 @@ class Client {
 					}
 
 					protocol.path = filepath;
-					protocol.lowerPath = filepath.toLowercase();
+					protocol.lowerPath = filepath.toLowerCase();
 					protocol.script = file;
 
 					return protocol;
@@ -453,13 +451,15 @@ class Client {
 
 		try {
 
-			const s = useUtil ?
-				util.inspect( data ) :
-				JSON.stringify( data );
+			const s = typeof data === "string" ?
+				data :
+				useUtil ?
+					util.inspect( data ) :
+					JSON.stringify( data );
 
 			if ( s.length > 5000 ) return;
 
-			this.log( UTIL.colors.green, data );
+			this.log( "[SEND]", data );
 
 			//Send via websocket
 			if ( this.type === "ws" ) this.socket.send( s );

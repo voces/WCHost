@@ -127,7 +127,7 @@ class Nova {
 
 		// Reserve all currently running lobbies
 		for ( let i = 0; i < this.server.lobbies.length; i ++ )
-			this.send( { id: "onReserve", name: this.server.lobbies[ i ].name } );
+			this.send( { id: "onReserve", name: this.server.lobbies[ i ].name, owner: this.server.lobbies[ i ].ownerAccount } );
 
 	}
 
@@ -144,7 +144,7 @@ class Nova {
 
 	canConnect( account ) {
 
-		return ! this.host.server.clients.map[ account ] && ! this.host.server.preclients.map[ account ];
+		return ! this.host.server.clients.dict[ account ] && ! this.host.server.preclients.dict[ account ];
 
 	}
 
@@ -169,17 +169,17 @@ class Nova {
 	reserve( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return; // TODO: error here
+			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Lobby name not provided." } );
 
 		if ( ! this.canHost( packet.owner.toLowerCase() ) )
-			return;
+			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Owner cannot host." } );
 
 		const lobbyName = packet.name.toLowerCase();
 
-		if ( this.server.lobbies.map[ lobbyName ] )
-			return; // Not an error, just ignore...?
+		if ( this.server.lobbies.dict[ lobbyName ] )
+			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Lobby name is already taken." } );
 
-		this.host.server.lobbies.map[ lobbyName ] = true;
+		this.host.server.lobbies.dict[ lobbyName ] = true;
 		this.send( { id: "onReserve", name: packet.name, owner: packet.owner } );
 
 	}
@@ -247,10 +247,10 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowerCase();
 
-		if ( this.server.lobbies.map[ lowerName ] )
+		if ( this.server.lobbies.dict[ lowerName ] )
 			return this.send( { id: "whisper", account, message: "That name is already taken." } );
 
-		this.server.lobbies[ lowerName ] = true;
+		this.server.lobbies.dict[ lowerName ] = true;
 		this.send( { id: "onReserve", name: name } );
 
 	}
@@ -263,7 +263,7 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.map[ lowerName ];
+			lobby = this.server.lobbies.dict[ lowerName ];
 
 		if ( ! lobby )
 			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
@@ -281,7 +281,7 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.map[ lowerName ];
+			lobby = this.server.lobbies.dict[ lowerName ];
 
 		if ( ! lobby )
 			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
@@ -299,7 +299,7 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.map[ lowerName ];
+			lobby = this.server.lobbies.dict[ lowerName ];
 
 		if ( ! lobby )
 			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
