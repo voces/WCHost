@@ -1,11 +1,10 @@
 
-const dateformat = require( "dateformat" );
+import dateformat from "dateformat";
+import WebSocket from "ws";
 
-const WebSocket = require( "ws" );
-
-const Preclient = require( "./server/Preclient" );
-const Lobby = require( "./server/Lobby" );
-const UTIL = require( "./util" );
+import Lobby from "./server/Lobby";
+import Preclient from "./server/Preclient";
+import UTIL from "./util";
 
 const WEBSOCKET_ERRORS = {
 	ETIMEDOUT: "Timed out while trying to connect to Nova.",
@@ -59,6 +58,7 @@ class Nova {
 
 			// Self
 			case "onLogin": return this.onLogin( data );
+			case "onLoginFail": return ( this.error( data ), process.exit( 1 ) );
 			case "onUpgrade": return this.onUpgrade();
 
 			// Hosting
@@ -201,7 +201,7 @@ class Nova {
 
 		this.host.server.preclients.add( preclient );
 
-		this.send( { id: "onBridge", account: packet.account, key: key } );
+		this.send( { id: "onBridge", account: packet.account, key } );
 
 	}
 
@@ -251,7 +251,7 @@ class Nova {
 			return this.send( { id: "whisper", account, message: "That name is already taken." } );
 
 		this.server.lobbies.dict[ lowerName ] = true;
-		this.send( { id: "onReserve", name: name } );
+		this.send( { id: "onReserve", name } );
 
 	}
 

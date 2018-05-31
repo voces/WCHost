@@ -1,15 +1,14 @@
 
-const path = require( "path" );
+import path from "path";
 
-module.exports = {
+export default {
 	db: {
 		host: "localhost",
 		user: "webcraft_host",
-		password: "$11$WzyHRaXfvPsjZfRX9fe0",
 		database: "webcraft_host"
 	},
 	nova: {
-		address: "wss://notextures.io:8080",
+		address: "ws://notextures.io:8080",
 		user: "anon",
 		password: ""
 	},
