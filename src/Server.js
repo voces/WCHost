@@ -1,12 +1,13 @@
 
-const WebSocket = require( "ws" );
-const dateformat = require( "dateformat" );
+import dateformat from "dateformat";
+import http from "http";
+import WebSocket from "ws";
 
-const Collection = require( "./Collection" );
-const Client = require( "./server/Client" );
-const UTIL = require( "./util" );
+import Client from "./server/Client.js";
+import Collection from "./Collection.js";
+import { colors } from "./util.js";
 
-class Server {
+export default class Server {
 
 	constructor( config, nova ) {
 
@@ -25,34 +26,37 @@ class Server {
 
 		};
 
-		this.lobbies = new Collection();
-		this.lobbies.key = "lowerName";
+		this.rooms = new Collection();
+		this.rooms.key = "lowerName";
 
-		this.protocols = new Collection();
-		this.protocols.key = "lowerPath";
+		this.apps = new Collection();
+		this.apps.key = "lowerPath";
 
 		this.nova = nova;
 
 		this.port = config.port || 8081;
 
-		config = Object.assign( { port: 8081 }, config );
+		config = Object.assign( { port: this.port }, config );
 
-		this.wss = new WebSocket.Server( config );
-		this.wss.on( "connection", socket => this.clients.add( new Client( socket, this ) ) );
+		const server = http.createServer();
+		server.on( "upgrade", ( request, socket ) => {
 
-		// this.pinger = new setInterval( this.pingFunc.bind( this ), 1000 );
+			if ( ! request.headers[ "sec-websocket-protocol" ] )
+				this.wss.handleUpgrade( request, socket, [], ws => this.clients.add( new Client( ws, this ) ) );
 
-		this.log( "Server started on port", config.port );
+		} );
+
+		this.wss = new WebSocket.Server( { noServer: true } );
+
+		server.listen( this.port );
+		this.log( "Server started on port", this.port );
 
 	}
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
 
 	}
 
 }
-
-//Expose Server class
-module.exports = Server;

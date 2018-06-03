@@ -2,16 +2,16 @@
 import dateformat from "dateformat";
 import WebSocket from "ws";
 
-import Lobby from "./server/Lobby";
-import Preclient from "./server/Preclient";
-import UTIL from "./util";
+import MasterRoom from "./server/MasterRoom.js";
+import Preclient from "./server/Preclient.js";
+import { colors } from "./util.js";
 
 const WEBSOCKET_ERRORS = {
 	ETIMEDOUT: "Timed out while trying to connect to Nova.",
 	ECONNREFUSED: "Unable to connect to Nova. You may have the incorrect address."
 };
 
-class Nova {
+export default class Nova {
 
 	constructor( host, config = {} ) {
 
@@ -67,7 +67,7 @@ class Nova {
 
 			// Joining
 			case "bridge": return this.bridge( data );
-			case "onOnBridge": case "onOnLobby": return;
+			case "onOnBridge": case "onOnRoom": return;
 
 			// Communication
 			case "onWhisper": return this.onWhisper( data );
@@ -125,9 +125,9 @@ class Nova {
 
 		this.log( "Successfully upgraded to host" );
 
-		// Reserve all currently running lobbies
-		for ( let i = 0; i < this.server.lobbies.length; i ++ )
-			this.send( { id: "onReserve", name: this.server.lobbies[ i ].name, owner: this.server.lobbies[ i ].ownerAccount } );
+		// Reserve all currently running rooms
+		for ( let i = 0; i < this.server.rooms.length; i ++ )
+			this.send( { id: "onReserve", name: this.server.rooms[ i ].name, owner: this.server.rooms[ i ].ownerAccount } );
 
 	}
 
@@ -169,17 +169,17 @@ class Nova {
 	reserve( packet ) {
 
 		if ( typeof packet.name !== "string" )
-			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Lobby name not provided." } );
+			return this.send( { id: "onReserveReject", owner: packet.owner, Room: packet.name, reason: "Room name not provided." } );
 
 		if ( ! this.canHost( packet.owner.toLowerCase() ) )
-			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Owner cannot host." } );
+			return this.send( { id: "onReserveReject", owner: packet.owner, Room: packet.name, reason: "Owner cannot host." } );
 
-		const lobbyName = packet.name.toLowerCase();
+		const roomName = packet.name.toLowerCase();
 
-		if ( this.server.lobbies.dict[ lobbyName ] )
-			return this.send( { id: "onReserveReject", owner: packet.owner, lobby: packet.name, reason: "Lobby name is already taken." } );
+		if ( this.server.rooms.dict[ roomName ] )
+			return this.send( { id: "onReserveReject", owner: packet.owner, Room: packet.name, reason: "Room name is already taken." } );
 
-		this.host.server.lobbies.dict[ lobbyName ] = true;
+		this.host.server.rooms.dict[ roomName ] = true;
 		this.send( { id: "onReserve", name: packet.name, owner: packet.owner } );
 
 	}
@@ -196,8 +196,8 @@ class Nova {
 		if ( ! this.canConnect( packet.originalAccount, packet.account.toLowerCase(), packet.ip ) )
 			return this.send( { id: "bridgeReject", account: packet.account, reason: "Provided account is blocked.", data: packet } );
 
-		const key = Math.random().toString().substr( 2 ),
-			preclient = new Preclient( this.host.server, packet.account, key );
+		const key = Math.random().toString().substr( 2 );
+		const preclient = new Preclient( this.host.server, packet.account, key );
 
 		this.host.server.preclients.add( preclient );
 
@@ -207,7 +207,7 @@ class Nova {
 
 	onOnReserve( packet ) {
 
-		this.host.server.lobbies.add( new Lobby( this.host, packet.name, packet.owner ) );
+		this.host.server.rooms.add( new MasterRoom( this.host, packet.name, packet.owner ) );
 
 	}
 
@@ -224,7 +224,7 @@ class Nova {
 
 	onWhisper( packet ) {
 
-		if ( packet.message.substr( 0, 1 ) == "/" ) {
+		if ( packet.message.substr( 0, 1 ) === "/" ) {
 
 			const args = packet.message.split( " " ),
 				command = args.shift().substr( 1 );
@@ -247,10 +247,10 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowerCase();
 
-		if ( this.server.lobbies.dict[ lowerName ] )
+		if ( this.server.rooms.dict[ lowerName ] )
 			return this.send( { id: "whisper", account, message: "That name is already taken." } );
 
-		this.server.lobbies.dict[ lowerName ] = true;
+		this.server.rooms.dict[ lowerName ] = true;
 		this.send( { id: "onReserve", name } );
 
 	}
@@ -263,12 +263,12 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.dict[ lowerName ];
+			Room = this.server.rooms.dict[ lowerName ];
 
-		if ( ! lobby )
-			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
+		if ( ! Room )
+			return this.send( { id: "whisper", account, message: "That Room does not exist." } );
 
-		lobby.unlist();
+		Room.unlist();
 		this.send( { id: "whisper", account, message: name + " unlisted." } );
 
 	}
@@ -281,12 +281,12 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.dict[ lowerName ];
+			Room = this.server.rooms.dict[ lowerName ];
 
-		if ( ! lobby )
-			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
+		if ( ! Room )
+			return this.send( { id: "whisper", account, message: "That Room does not exist." } );
 
-		lobby.relist();
+		Room.relist();
 		this.send( { id: "whisper", account, message: name + " relisted." } );
 
 	}
@@ -299,12 +299,12 @@ class Nova {
 		const name = args.join( " " ),
 			lowerName = name.toLowercase(),
 
-			lobby = this.server.lobbies.dict[ lowerName ];
+			Room = this.server.rooms.dict[ lowerName ];
 
-		if ( ! lobby )
-			return this.send( { id: "whisper", account, message: "That lobby does not exist." } );
+		if ( ! Room )
+			return this.send( { id: "whisper", account, message: "That Room does not exist." } );
 
-		lobby.unreserve();
+		Room.unreserve();
 		this.send( { id: "whisper", account, message: name + " unreserved." } );
 
 	}
@@ -340,17 +340,15 @@ class Nova {
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.cyan, ...args, UTIL.colors.default );
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.cyan, ...args, colors.default );
 
 	}
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
 
 	}
 
 }
 
-//Expose Server class
-module.exports = Nova;

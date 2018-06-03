@@ -1,79 +1,7 @@
 
-const fs = require( "fs" );
+import fs from "fs";
 
-class UTIL {
-
-	static merge( target, ...sources ) {
-
-		for ( let i = 0, source; source = sources[ i ]; i ++ )
-			for ( const prop in source )
-
-				if ( typeof source[ prop ] !== "object" || typeof target[ prop ] !== "object" )
-					target[ prop ] = target = source[ prop ];
-
-				else {
-
-					const type = source[ prop ] instanceof Array ? Array : Object;
-
-					if ( typeof target[ prop ] !== "object" ) target[ prop ] = new type();
-					else if ( target[ prop ] instanceof source[ prop ].constructor ) target[ prop ] = new type();
-
-					UTIL.merge( target[ prop ], source[ prop ] );
-
-				}
-
-	}
-
-	static _pick( source, target, ...fields ) {
-
-		for ( let i = 0; i < fields.length; i ++ )
-			if ( typeof fields[ i ] === "object" && fields[ i ] instanceof Array )
-				UTIL._pick( source, target, fields[ i ] );
-			else target[ fields[ i ] ] = source[ fields[ i ] ];
-
-			// else {
-            //
-			// 	const path = fields[ i ].split( "." );
-            //
-			// 	if ( path.length === 1 ) target[ path[ 0 ] ] = source[ path[ 0 ] ];
-			// 	else {
-            //
-			// 		let sourceTopic = source,
-			// 			targetTopic = target;
-            //
-			// 		for ( let n = 0; n < path.length; n ++ ) {
-            //
-			// 			if ( topic[ path[ n ] ] ) topic = topic[ path[ n ] ];
-            //
-			// 		}
-            //
-			// 	}
-            //
-			// }
-
-	}
-
-	static pick( source, ...fields ) {
-
-		return UTIL._pick( source, {}, ...fields );
-
-	}
-
-	static promisify( func ) {
-
-		return ( ...args ) =>
-	        new Promise( ( resolve, reject ) =>
-	            func( ...args, ( err, res ) =>
-	                err ? reject( err ) : resolve( res ) ) );
-
-	}
-
-}
-
-UTIL.readdir = UTIL.promisify( fs.readdir );
-UTIL.readFile = UTIL.promisify( fs.readFile );
-
-UTIL.colors = {
+export const colors = {
 	red: "\x1b[0;31m",
 	green: "\x1b[0;32m",
 	yellow: "\x1b[0;33m", // Preclient
@@ -93,4 +21,55 @@ UTIL.colors = {
 	default: "\x1b[0;0m"
 };
 
-module.exports = UTIL;
+export const merge = ( target, ...sources ) => {
+
+	for ( let i = 0, source; source = sources[ i ]; i ++ )
+		for ( const prop in source )
+
+			if ( typeof source[ prop ] !== "object" || typeof target[ prop ] !== "object" )
+				target[ prop ] = target = source[ prop ];
+
+			else {
+
+				const type = source[ prop ] instanceof Array ? Array : Object;
+
+				if ( typeof target[ prop ] !== "object" ) target[ prop ] = new type();
+				else if ( target[ prop ] instanceof source[ prop ].constructor ) target[ prop ] = new type();
+
+				merge( target[ prop ], source[ prop ] );
+
+			}
+
+};
+
+// class UTIL {
+
+// 	static _pick( source, target, ...fields ) {
+
+// 		for ( let i = 0; i < fields.length; i ++ )
+// 			if ( typeof fields[ i ] === "object" && fields[ i ] instanceof Array )
+// 				UTIL._pick( source, target, fields[ i ] );
+// 			else target[ fields[ i ] ] = source[ fields[ i ] ];
+
+// 	}
+
+// 	static pick( source, ...fields ) {
+
+// 		return UTIL._pick( source, {}, ...fields );
+
+// 	}
+
+// }
+
+function promisify( func ) {
+
+	return ( ...args ) =>
+		new Promise( ( resolve, reject ) =>
+			func( ...args, ( err, res ) =>
+				err ? reject( err ) : resolve( res ) ) );
+
+}
+
+export const readdir = promisify( fs.readdir );
+export const readFile = promisify( fs.readFile );
+

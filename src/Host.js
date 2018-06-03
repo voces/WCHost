@@ -1,15 +1,12 @@
 
-// const https = require( "https" );
+import dateformat from "dateformat";
 
-const dateformat = require( "dateformat" );
-// const ws = require( "ws" );
+import FileServer from "./FileServer.js";
+import Nova from "./Nova.js";
+import Server from "./Server.js";
+import { colors } from "./util.js";
 
-const Server = require( "./Server" );
-const Nova = require( "./Nova" );
-const FileServer = require( "./FileServer" );
-const UTIL = require( "./util" );
-
-class Host {
+export default class Host {
 
 	constructor( config ) {
 
@@ -23,16 +20,14 @@ class Host {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.cyan, ...args, UTIL.colors.default );
+		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.cyan, ...args, colors.default );
 
 	}
 
 }
-
-module.exports = Host;

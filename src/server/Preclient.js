@@ -1,18 +1,18 @@
 
-const dateformat = require( "dateformat" );
+import dateformat from "dateformat";
 
-const UTIL = require( "../util" );
+import { colors } from "../util.js";
 
-class Preclient {
+export default class Preclient {
 
-	constructor( server, account, key, lobby ) {
+	constructor( server, account, key, Room ) {
 
 		this.server = server;
 
 		this.account = account;
 		this.lowerAccount = account.toLowerCase();
 		this.key = key;
-		this.lobby = lobby;
+		this.Room = Room;
 
 		this.timeout = setTimeout( () => this.timeoutFunc(), 10000 );
 
@@ -38,17 +38,14 @@ class Preclient {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.byellow, this.account || this.address(), ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.byellow, this.account || this.address(), ...args, colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.yellow, this.account || this.address(), ...args, UTIL.colors.default );
+		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.yellow, this.account || this.address(), ...args, colors.default );
 
 	}
 
 }
-
-//Expose Client class
-module.exports = Preclient;

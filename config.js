@@ -17,18 +17,18 @@ export default {
 	},
 	fileServer: {
 		port: 8087,
-		path: path.join( __dirname, "protocols" )
+		path: path.join( __dirname, "apps" )
 	},
 	access: {
 		default: {
 			reserve: false,
-			protocol: false,
+			app: false,
 			set: false,
 			kick: false,
 			js: false
 		},
 		owner: {
-			protocol: true,
+			app: true,
 			kick: true
 		}
 	},

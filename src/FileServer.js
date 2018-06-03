@@ -1,12 +1,11 @@
 
-const http = require( "http" );
-const path = require( "path" );
+import http from "http";
+import mime from "mime-types";
+import path from "path";
 
-const mime = require( "mime-types" );
+import { readFile } from "./util.js";
 
-const UTIL = require( "./util" );
-
-class FileServer {
+export default class FileServer {
 
 	constructor( config ) {
 
@@ -23,7 +22,7 @@ class FileServer {
 
 		if ( req.url === "/favicon.ico" ) return res.end();
 
-		const file = UTIL.readFile( path.join( this.root, req.url ) )
+		const file = readFile( path.join( this.root, req.url ) )
 			.catch( () => Promise.resolve() );
 
 		if ( ! file ) {
@@ -39,5 +38,3 @@ class FileServer {
 	}
 
 }
-
-module.exports = FileServer;

@@ -1,5 +1,5 @@
 
-class Collection extends Array {
+export default class Collection extends Array {
 
 	constructor( ...args ) {
 
@@ -43,5 +43,3 @@ class Collection extends Array {
 }
 
 Collection.defaultKey = "key";
-
-module.exports = Collection;

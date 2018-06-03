@@ -1,15 +1,15 @@
 
-const mysql = require( "mysql2" );
-const dateformat = require( "dateformat" );
+import mysql from "mysql2";
+import dateformat from "dateformat";
 
-const UTIL = require( "./util" );
+import { colors } from "./util";
 
 let db, config;
 
-const log = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.bcyan, ...args, UTIL.colors.default );
-const error = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + UTIL.colors.cyan, ...args, UTIL.colors.default );
+const log = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bcyan, ...args, colors.default );
+const error = ( ...args ) => console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.cyan, ...args, colors.default );
 
-function connect( newConfig ) {
+export default function connect( newConfig ) {
 
 	config = newConfig;
 
@@ -23,14 +23,12 @@ function connect( newConfig ) {
 	} );
 
 	connect.query = ( query, args = null ) =>
-        new Promise( ( resolve, reject ) =>
-            db.query( query, args, ( err, res ) =>
-                err ? reject( err ) : resolve( res ) ) );
+		new Promise( ( resolve, reject ) =>
+			db.query( query, args, ( err, res ) =>
+				err ? reject( err ) : resolve( res ) ) );
 
 	connect.query( "SELECT 1 + 1" )
 		.then( () => log( "MySQL connected" ) )
 		.catch( error );
 
 }
-
-module.exports = connect;
