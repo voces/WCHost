@@ -10,24 +10,14 @@ class ForkedRoom {
 
 	constructor() {
 
-		// this.host = host;
-		// this.server = host.server;
-		// this.nova = host.nova;
-
-		// this.name = name;
-		// this.lowerName = name.toLowerCase();
-		// this.ownerAccount = owner;
-
 		this.wss = new WebSocket.Server( { noServer: true } );
 
 		this.clients = new Collection();
 		this.clients.key = "lowerAccount";
 
-		// this.log( "Reserved Room for", owner );
-
 		this.timeout = setTimeout( () => this.destroy(), 300000 );
 
-		process.on( "message", this.onMessage.bind( this ) );
+		process.on( "message", this.onMessageFromMaster.bind( this ) );
 
 	}
 
@@ -38,6 +28,8 @@ class ForkedRoom {
 
 		this.log( "Room unreserved" );
 
+		process.exit( 0 );
+
 	}
 
 	//////////////////////////////////////////////
@@ -47,18 +39,20 @@ class ForkedRoom {
 	addClient( data, socket ) {
 
 		data.ws.maxPayload = this.wss.maxPayload;
-		const client = new Client( data, socket );
+		const client = new Client( data, socket, this );
 		this.clients.add( client );
 
 		clearTimeout( this.timeout );
 
-		this.app && this.app.dispatchEvent( { id: "onJoin", accounts: [ ws.account ] } );
+		this._app && this._app.dispatchEvent( "onJoin", { accounts: [ client.account ] } );
 
-		client.json( { id: "onRoom", app: this.app } );
+		client.json( { id: "onRoom", app: this.appConstructor } );
 
 	}
 
 	removeClient( client, silent ) {
+
+		if ( ! this.clients.dict[ client.lowerAccount ] ) return;
 
 		if ( this.clients.length <= 1 ) {
 
@@ -69,7 +63,7 @@ class ForkedRoom {
 		} else this.log( "Removed user from Room" );
 
 		if ( silent !== true )
-			this.sandboxSend( { id: "onLeave", accounts: [ client.account ] } );
+			this._app && this._app.dispatchEvent( { id: "onLeave", accounts: [ client.account ] } );
 
 		this.clients.remove( client );
 		client.Room = null;
@@ -82,13 +76,42 @@ class ForkedRoom {
 
 	}
 
+	set app( app ) {
+
+		import( app + "/app.js" ).catch( this.error.bind( this ) ).then( i => {
+
+			this.appConstructor = i.default;
+			this._app = new this.appConstructor();
+			if ( this.clients.length ) this._app.dispatchEvent( "onJoin", { accounts: this.clients.map( c => c.account ) } );
+
+			this.appConstructor.addEventListener( "meta", meta => process.send( {
+				id: "app",
+				app: {
+					name: meta.name,
+					version: meta.version,
+					author: meta.author
+				}
+			} ) );
+
+		} ).catch( this.error.bind( this ) );
+
+	}
+
+	get app() {
+
+		return this._app;
+
+	}
+
 	//////////////////////////////////////////////
 	//	Primary support
 	//////////////////////////////////////////////
 
-	onMessage( data, ...args ) {
+	onMessageFromMaster( data, ...args ) {
 
 		switch ( data.id ) {
+
+			case "init": return ( Object.assign( this, { name: data.name, owner: data.owner } ), this.log( "Forked into separate process" ) );
 
 			case "addClient": return this.addClient( data, args[ 0 ] );
 			case "removeClient": return this.removeClient( this.clients.dict[ data.client.toLowerCase() ] );
@@ -103,7 +126,7 @@ class ForkedRoom {
 
 	}
 
-	send( packet ) {
+	json( packet ) {
 
 		if ( typeof packet !== "object" ) packet = { id: "broadcast", data: packet };
 		else packet.id = "broadcast";

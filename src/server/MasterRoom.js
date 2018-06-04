@@ -1,7 +1,5 @@
 
 import cp from "child_process";
-
-// import { Vfrom= require( "vm2" ;
 import dateformat from "dateformat";
 
 import { colors } from "../util.js";
@@ -19,11 +17,10 @@ export default class MasterRoom {
 		this.ownerAccount = owner;
 
 		this.sandbox = cp.fork( "index.js", { env: { FILE: "./src/server/ForkedRoom.js" } } );
+		this.sandbox.send( { id: "init", name, owner } );
 		this.sandbox.on( "message", msg => this.sandboxReceive( msg ) );
 
 		this.log( "Reserved Room for", owner );
-
-		this.timeout = setTimeout( () => this.destroy(), 300000 );
 
 	}
 
@@ -35,24 +32,18 @@ export default class MasterRoom {
 
 	set app( value ) {
 
-		if ( typeof value === "string" ) {
+		if ( typeof value === "string" ) return this.sandboxApp( value );
 
-			this._app = value;
-
-			this.log( "App set to", value );
-
-			return this.sandboxApp( value );
-
-		}
+		this._app = value;
 
 		this.nova.send( {
 			id: "update",
 			name: this.name,
-			app: this._app.name,
-			date: this._app.date,
-			version: this._app.version,
-			preview: this._app.preview,
-			author: this._app.author
+			app: value.name,
+			date: value.date,
+			version: value.version,
+			preview: value.preview,
+			author: value.author
 		} );
 
 	}
@@ -78,8 +69,6 @@ export default class MasterRoom {
 			extensions: client.socket.extensions,
 			protocol: client.socket.protocol
 		} }, client.socket._socket );
-
-		clearTimeout( this.timeout );
 
 	}
 
@@ -109,7 +98,7 @@ export default class MasterRoom {
 
 		this.nova.send( { id: "unreserve", name: this.name } );
 
-		this.log( "Room unreserved" );
+		this.log( "Room unreserved1" );
 
 	}
 

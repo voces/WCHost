@@ -5,8 +5,10 @@ export default class Collection extends Array {
 
 		super( ...args );
 
-		this.key = Collection.defaultKey;
-		this.dict = {};
+		Object.defineProperties( this, {
+			key: { value: Collection.defaultKey, writable: true },
+			dict: { value: {} }
+		} );
 
 	}
 

@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "dateformat": "^2.2.0",
-    "esm": "^3.0.41",
+    "esm": "^3.0.46",
     "mime-types": "^2.1.18",
     "mysql2": "^1.5.3",
     "vm2": "^3.6.0",

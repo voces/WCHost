@@ -1,5 +1,6 @@
 
-import dateformat from "dataformat";
+import dateformat from "dateformat";
+import util from "util";
 import WebSocket from "ws";
 
 import { colors } from "../util.js";
@@ -7,13 +8,104 @@ import EventDispatcher from "wc-eventdispatcher/src/EventDispatcher.js";
 
 export default class Player extends EventDispatcher {
 
-	constructor( data, socket ) {
+	constructor( data, socket, room ) {
 
 		super();
 
 		this.socket = new WebSocket( [ socket, []], null, data.ws );
 		this.account = data.account;
 		this.lowerAccount = data.account.toLowerCase();
+		this.room = room;
+
+		this.socket.on( "message", data => this.receive( data ) );
+		this.socket.on( "close", data => this.close( data ) );
+		this.socket.on( "error", data => this.error( data ) );
+
+	}
+
+	//////////////////////////////////////////////
+	//	Event Managers
+	//////////////////////////////////////////////
+
+	receive( data ) {
+
+		if ( typeof data === "object" && data instanceof Buffer )
+			data = data.toString();
+
+		let packet;
+
+		try {
+
+			packet = JSON.parse( data );
+
+		} catch ( err ) {
+
+			return this.send( { id: "invalid", level: 0, account: this.account, data } );
+
+		}
+
+		this.log( "[RECV]", packet );
+
+		switch ( packet.id ) {
+
+			// Room
+			// case "room": return this.joinRoom( packet );
+			// case "leave": return this.leave( packet );
+
+			// Communication
+			// case "broadcast": return this.broadcast( packet );
+			// case "echo": return this.echo( packet );
+			// case "sync": return this.sync( packet );
+
+			// Hosting
+			// case "unlist": return this.unlist( packet );
+			// case "relist": return this.relist( packet );
+			// case "unreserve": return this.unreserve( packet );
+
+			// Commands
+			case "app": return this.setApp( packet );
+			// case "getApps": return this.getApps( packet );
+
+			default: return this.send( { id: "invalid", level: 2, account: this.account, data: packet } );
+
+		}
+
+	}
+
+	close() {
+
+		this.log( "Disconnected" );
+
+		this.room.removeClient( this );
+
+	}
+
+	//////////////////////////////////////////////
+	//	Commands
+	//////////////////////////////////////////////
+
+	hasAccess( /*what*/ ) {
+
+		// return this.access[ what ] || ( this.room && this.roomowner === this.account && config.access.owner[ what ] );
+		return true;
+
+	}
+
+	setApp( packet ) {
+
+		if ( ! packet.path )
+			return this.send( { id: "onAppFail", reasonCode: 69, reason: "App path not provided.", data: packet } );
+
+		if ( ! this.hasAccess( "app" ) )
+			return this.send( { id: "onAppFail", reasonCode: 58, reason: "Client does not have necessary access to set room app.", data: packet } );
+
+		// const app = this.server.apps.dict[ packet.path.toLowerCase() ];
+
+		// if ( ! app )
+		// 	return this.send( { id: "onAppFail", reasonCode: 57, reason: "Provided app does not exist.", data: packet } );
+
+		// this.room.path = packet.path;
+		this.room.app = packet.path;
 
 	}
 
@@ -73,11 +165,7 @@ export default class Player extends EventDispatcher {
 
 			this.log( "[SEND]", data );
 
-			//Send via websocket
-			if ( this.type === "ws" ) this.socket.send( s );
-
-			//Send via socket
-			else if ( this.type === "s" ) this.socket.write( s );
+			this.socket.send( s );
 
 		} catch ( e ) { /* do nothing */ }
 
