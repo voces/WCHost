@@ -48,6 +48,9 @@ export default class Player extends EventDispatcher {
 
 		switch ( packet.id ) {
 
+			// Game
+			case "network": return this.onNetwork( packet );
+
 			// Room
 			// case "room": return this.joinRoom( packet );
 			// case "leave": return this.leave( packet );
@@ -77,6 +80,19 @@ export default class Player extends EventDispatcher {
 		this.log( "Disconnected" );
 
 		this.room.removeClient( this );
+
+	}
+
+	//////////////////////////////////////////////
+	//	Game
+	//////////////////////////////////////////////
+
+	onNetwork( packet ) {
+
+		if ( ! this.room || ! this.room._app ) return;
+
+		this.room._app.time = packet.time;
+		this.room._app.dispatchEvent( packet );
 
 	}
 

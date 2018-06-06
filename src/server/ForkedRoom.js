@@ -81,9 +81,6 @@ class ForkedRoom {
 		import( app + "/app.js" ).catch( this.error.bind( this ) ).then( i => {
 
 			this.appConstructor = i.default;
-			this._app = new this.appConstructor();
-			if ( this.clients.length ) this._app.dispatchEvent( "onJoin", { accounts: this.clients.map( c => c.account ) } );
-
 			this.appConstructor.addEventListener( "meta", meta => process.send( {
 				id: "app",
 				app: {
@@ -92,6 +89,10 @@ class ForkedRoom {
 					author: meta.author
 				}
 			} ) );
+
+			this._app = new this.appConstructor();
+			this._app.addEventListener( "network", event => this.json( event.data ) );
+			if ( this.clients.length ) this._app.dispatchEvent( "onJoin", { accounts: this.clients.map( c => c.account ) } );
 
 		} ).catch( this.error.bind( this ) );
 
@@ -118,7 +119,7 @@ class ForkedRoom {
 			case "proxySend": return this.proxySend( this.clients.dict[ data.client.toLowerCase() ], data.data );
 
 			case "destroy": return this.destroy();
-			// case "app": return this.app = this.server.apps.dict[ data.path.toLowerCase() ];
+			case "app": return this.app = data.path;
 			case "broadcast": return this.send( data );
 			default: this.error( "Unknown message from master", data );
 
@@ -128,11 +129,13 @@ class ForkedRoom {
 
 	json( packet ) {
 
-		if ( typeof packet !== "object" ) packet = { id: "broadcast", data: packet };
-		else packet.id = "broadcast";
+		if ( typeof packet !== "object" ) packet = { id: "network", data: packet };
+		else packet.id = "network";
 
-		packet.Room = this.name;
-		packet.timestamp = Date.now();
+		packet.room = this.name;
+		packet.time = Date.now();
+
+		this.log( "[SEND]", packet );
 
 		const data = JSON.stringify( packet );
 
