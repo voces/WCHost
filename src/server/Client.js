@@ -432,8 +432,6 @@ export default class Client {
 					util.inspect( data ) :
 					JSON.stringify( data );
 
-			if ( s.length > 5000 ) return;
-
 			this.log( "[SEND]", data );
 
 			//Send via websocket

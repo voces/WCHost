@@ -49,7 +49,9 @@ export default class Player extends EventDispatcher {
 		switch ( packet.id ) {
 
 			// Game
-			case "network": return this.onNetwork( packet );
+			case "network":
+				console.warn( "`type=network` is deprecated, just send stuff directly" );
+				return this.onNetwork( packet );
 
 			// Room
 			// case "room": return this.joinRoom( packet );
@@ -69,7 +71,7 @@ export default class Player extends EventDispatcher {
 			case "app": return this.setApp( packet );
 			// case "getApps": return this.getApps( packet );
 
-			default: return this.send( { id: "invalid", level: 2, account: this.account, data: packet } );
+			default: return this.onNetwork( packet );
 
 		}
 
@@ -91,8 +93,9 @@ export default class Player extends EventDispatcher {
 
 		if ( ! this.room || ! this.room._app ) return;
 
-		this.room._app.time = packet.time;
-		this.room._app.dispatchEvent( packet );
+		packet.account = this.account;
+		console.log( "onNetwork", packet );
+		this.room._app.receive( packet );
 
 	}
 
@@ -148,19 +151,27 @@ export default class Player extends EventDispatcher {
 
 	log( ...args ) {
 
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bblue, this.account || this.address(), ...args, colors.default );
+		console.log( colors.bblue + ( this.account || this.address() ), ...args, colors.default );
 
 	}
 
 	error( ...args ) {
 
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.blue, this.account || this.address(), ...args, colors.default );
+		console.error( colors.blue + ( this.account || this.address() ), ...args, colors.default );
 
 	}
 
 	send( data ) {
 
-		this.socket.send( data );
+		try {
+
+			this.socket.send( data );
+
+		} catch ( err ) {
+
+			this.close();
+
+		}
 
 	}
 

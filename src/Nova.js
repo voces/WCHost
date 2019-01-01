@@ -64,6 +64,8 @@ export default class Nova {
 			// Hosting
 			case "reserve": return this.reserve( data );
 			case "onOnReserve": return this.onOnReserve( data );
+			case "onUnreserve": return;
+			case "onUpdate": return;
 
 			// Joining
 			case "bridge": return this.bridge( data );

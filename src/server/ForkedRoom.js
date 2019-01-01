@@ -6,6 +6,14 @@ import Collection from "../Collection.js";
 import { colors } from "../util.js";
 import Client from "./ForkedClient.js";
 
+const logging = context =>
+	[ "log", "info", "error", "warn" ].forEach( level => {
+
+		const old = console[ level ];
+		console[ level ] = ( ...args ) => old( dateformat( new Date(), "hh:MM:sst" ) + colors.magenta, context, ...args, colors.default );
+
+	} );
+
 class ForkedRoom {
 
 	constructor() {
@@ -26,8 +34,6 @@ class ForkedRoom {
 		for ( let i = 0; i < this.clients.length; i ++ )
 			this.removeClient( this.clients[ i ], true );
 
-		this.log( "Room unreserved" );
-
 		process.exit( 0 );
 
 	}
@@ -44,7 +50,7 @@ class ForkedRoom {
 
 		clearTimeout( this.timeout );
 
-		this._app && this._app.dispatchEvent( "onJoin", { accounts: [ client.account ] } );
+		this._app && this._app.onServerJoin && this._app.onServerJoin( client.account );
 
 		client.json( { id: "onRoom", app: this.appConstructor } );
 
@@ -56,17 +62,18 @@ class ForkedRoom {
 
 		if ( this.clients.length <= 1 ) {
 
-			this.timeout = setTimeout( () => this.destroy(), 300000 );
+			// this.timeout = setTimeout( () => this.destroy(), 300000 );
+			this.timeout = setTimeout( () => this.destroy(), 3 );
 
-			this.log( "Removed user from Room, auto destruct enabled" );
+			console.log( `Removed ${client.account}, auto destruct enabled` );
 
-		} else this.log( "Removed user from Room" );
-
-		if ( silent !== true )
-			this._app && this._app.dispatchEvent( { id: "onLeave", accounts: [ client.account ] } );
+		} else console.log( `Removed ${client.account}` );
 
 		this.clients.remove( client );
 		client.Room = null;
+
+		if ( silent !== true )
+			this._app && this._app.onLeaveOnHost( client.account );
 
 	}
 
@@ -78,7 +85,7 @@ class ForkedRoom {
 
 	set app( app ) {
 
-		import( app + "/app.js" ).catch( this.error.bind( this ) ).then( i => {
+		import( app + "/app.js" ).catch( console.error.bind( this ) ).then( i => {
 
 			this.appConstructor = i.default;
 			this.appConstructor.addEventListener( "meta", meta => process.send( {
@@ -90,11 +97,10 @@ class ForkedRoom {
 				}
 			} ) );
 
-			this._app = new this.appConstructor();
-			this._app.addEventListener( "network", event => this.json( event.data ) );
-			if ( this.clients.length ) this._app.dispatchEvent( "onJoin", { accounts: this.clients.map( c => c.account ) } );
+			this._app = new this.appConstructor( { hostTransmit: data => this.json( data ) } );
+			this.clients.forEach( client => this._app.onJoinOnHost( client.account ) );
 
-		} ).catch( this.error.bind( this ) );
+		} ).catch( console.error.bind( this ) );
 
 	}
 
@@ -112,7 +118,7 @@ class ForkedRoom {
 
 		switch ( data.id ) {
 
-			case "init": return ( Object.assign( this, { name: data.name, owner: data.owner } ), this.log( "Forked into separate process" ) );
+			case "init": return this.init( data );
 
 			case "addClient": return this.addClient( data, args[ 0 ] );
 			case "removeClient": return this.removeClient( this.clients.dict[ data.client.toLowerCase() ] );
@@ -121,38 +127,31 @@ class ForkedRoom {
 			case "destroy": return this.destroy();
 			case "app": return this.app = data.path;
 			case "broadcast": return this.send( data );
-			default: this.error( "Unknown message from master", data );
+			default: console.error( "Unknown message from master", data );
 
 		}
 
 	}
 
+	init( data ) {
+
+		Object.assign( this, { name: data.name, owner: data.owner } );
+		logging( data.name );
+
+	}
+
 	json( packet ) {
 
-		if ( typeof packet !== "object" ) packet = { id: "network", data: packet };
-		else packet.id = "network";
+		const time = this._app ? this._app.update.last : undefined;
 
-		packet.room = this.name;
-		packet.time = Date.now();
+		if ( typeof packet !== "object" ) packet = { id: "app", room: this.name, time, data: packet };
+		else packet = { time, ...packet, id: "app", room: this.name };
 
-		this.log( "[SEND]", packet );
-
+		if ( packet.type !== "update" ) console.log( "[SEND]", packet );
 		const data = JSON.stringify( packet );
 
 		for ( let i = 0; i < this.clients.length; i ++ )
 			this.clients[ i ].send( data );
-
-	}
-
-	error( ...args ) {
-
-		console.error( dateformat( new Date(), "hh:MM:sst" ) + colors.magenta, this.name, ...args, colors.default );
-
-	}
-
-	log( ...args ) {
-
-		console.log( dateformat( new Date(), "hh:MM:sst" ) + colors.bmagenta, this.name, ...args, colors.default );
 
 	}
 

@@ -17,10 +17,13 @@ export default class MasterRoom {
 		this.ownerAccount = owner;
 
 		this.sandbox = cp.fork( "index.js", { env: { FILE: "./src/server/ForkedRoom.js" } } );
+		process.children.push( this.sandbox );
 		this.sandbox.send( { id: "init", name, owner } );
 		this.sandbox.on( "message", msg => this.sandboxReceive( msg ) );
+		this.sandbox.on( "error", () => this.destroy() );
+		this.sandbox.on( "exit", () => this.destroy() );
 
-		this.log( "Reserved Room for", owner );
+		this.log( "Reserved room for", owner );
 
 	}
 
@@ -29,7 +32,7 @@ export default class MasterRoom {
 		return this._app;
 
 	}
-
+	// process.children[0].on('exit', () => console.log('abc'))
 	set app( value ) {
 
 		if ( typeof value === "string" ) return this.sandboxApp( value );
@@ -50,9 +53,19 @@ export default class MasterRoom {
 
 	destroy() {
 
+		if ( this.destroyed ) return;
+		this.destroyed = true;
+
 		this.unreserve();
 
-		this.sandboxSend( { id: "destroy" } );
+		try {
+
+			this.sandboxSend( { id: "destroy" } );
+
+		} catch ( err ) { /* do nothing */ }
+
+		const index = process.children.indexOf( this.sandbox );
+		if ( index >= 0 ) process.children.splice( index );
 
 		this.server.rooms.remove( this );
 
@@ -60,7 +73,7 @@ export default class MasterRoom {
 
 	//////////////////////////////////////////////
 	//	Clients
-	//////////////////////////////////////////////
+	//////////////////////////////////////// //////
 
 	takeSocket( client ) {
 
@@ -72,7 +85,7 @@ export default class MasterRoom {
 
 	}
 
-	proxySend( client, data ) {
+	proxySend( _, data ) {
 
 		this.sandbox.send( { id: "proxySend", data } );
 
@@ -98,7 +111,7 @@ export default class MasterRoom {
 
 		this.nova.send( { id: "unreserve", name: this.name } );
 
-		this.log( "Room unreserved1" );
+		this.log( "Room unreserved" );
 
 	}
 
